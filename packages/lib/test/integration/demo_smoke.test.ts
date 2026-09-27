@@ -17,6 +17,9 @@ import { validateAudioTrack, validateTiming } from "../../src/timeline/validateT
 import type { AudioTrack, Timeline } from "../../src/types.js";
 
 const DEMO_ROOT = resolve(__dirname, "../../../../examples/videowright_demo");
+// The explainer video. Load it by path: findTimeline() picks the first video folder, and the
+// demo has several videos.
+const DEMO_TIMELINE = join(DEMO_ROOT, "videos/demo_video/timeline.ts");
 
 const EXPECTED_SEGMENT_IDS = [
 	"cold-open",
@@ -59,11 +62,7 @@ describe("cli_dev_against_demo_smoke", () => {
 	});
 
 	it("timeline loads via tsx with correct structure", async () => {
-		const timelinePath = findTimeline(DEMO_ROOT);
-		expect(timelinePath).toBeTruthy();
-		if (!timelinePath) return;
-
-		const mod = await loadModule(timelinePath);
+		const mod = await loadModule(DEMO_TIMELINE);
 		const timeline = mod.default as Timeline;
 
 		expect(timeline).toBeDefined();
@@ -72,11 +71,7 @@ describe("cli_dev_against_demo_smoke", () => {
 	});
 
 	it("timeline has 8 segments with expected ids", async () => {
-		const timelinePath = findTimeline(DEMO_ROOT);
-		expect(timelinePath).toBeTruthy();
-		if (!timelinePath) return;
-
-		const mod = await loadModule(timelinePath);
+		const mod = await loadModule(DEMO_TIMELINE);
 		const timeline = mod.default as Timeline;
 
 		expect(timeline.segments).toHaveLength(8);
@@ -86,11 +81,7 @@ describe("cli_dev_against_demo_smoke", () => {
 	});
 
 	it("timeline uses fade transition on web-tech-gallery", async () => {
-		const timelinePath = findTimeline(DEMO_ROOT);
-		expect(timelinePath).toBeTruthy();
-		if (!timelinePath) return;
-
-		const mod = await loadModule(timelinePath);
+		const mod = await loadModule(DEMO_TIMELINE);
 		const timeline = mod.default as Timeline;
 
 		const galleryEntry = timeline.segments.find((s) => s.id === "web-tech-gallery");
