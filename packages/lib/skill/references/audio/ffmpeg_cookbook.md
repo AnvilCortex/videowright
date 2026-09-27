@@ -145,6 +145,19 @@ Loop a short clip to fill a longer time span:
 
 For seamless loops, the source audio should be designed to loop cleanly (no click at the boundary). If there is a click, add a very short crossfade or fade at the loop point.
 
+## Join clips end to end
+
+Join clips one after another (e.g., VO parts generated separately) with the concat filter. It re-encodes, so the inputs can differ in format:
+
+```bash
+ffmpeg -i raw_part1.mp3 -i raw_part2.mp3 -i raw_part3.mp3 \
+  -filter_complex "[0:a][1:a][2:a]concat=n=3:v=0:a=1[out]" \
+  -map "[out]" -c:a libmp3lame -b:a 192k raw.mp3
+```
+
+- `n=3` -- number of inputs; list one `[i:a]` label per input.
+- No gap is added between clips. For VO parts, the retime step sets the pause at each join.
+
 ## Mix N streams
 
 ### amix (additive mixing)

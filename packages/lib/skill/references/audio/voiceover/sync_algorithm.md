@@ -11,7 +11,7 @@ This is an agent reasoning step, not a deterministic function. You read the per-
 ## Inputs
 
 1. **Per-segment script** from PLAN.md (the `## Script` section with subsections per segment id).
-2. **Provider timing JSON** at `audio/originals/voiceovers/<slug>/timing.json`. This contains per-word or per-character timestamps from the TTS provider or STT transcription.
+2. **Timing JSON** at `audio/originals/voiceovers/<slug>/timing.json`. This contains per-word timestamps from STT (shifted by the retime step in the AI flow).
 3. **Segment ids** in timeline order, plus each segment's `notes` and `voiceover` hint string.
 4. **Each segment's `advances` array** -- the current timing. You will be replacing these values in the `Timing`, but the array length tells you how many advances each segment needs.
 
@@ -33,9 +33,9 @@ Each value array has the same length as the segment's `advances` array. Values a
 
 ## Parsing provider timing JSON
 
-### ElevenLabs TTS timing
+### Timing JSON
 
-ElevenLabs TTS can output per-word timing (via the API's with-timestamps endpoint, or extracted via STT after portal generation). The JSON format contains an array of word entries with start and end timestamps:
+In the AI flow, `timing.json` comes from the retime step (see [retime.md](retime.md)): STT word timings, already shifted to match the retimed `audio.mp3`. In the manual flow, it comes straight from STT. Both use this format -- an array of word entries with start and end timestamps:
 
 ```json
 {
@@ -50,11 +50,11 @@ ElevenLabs TTS can output per-word timing (via the API's with-timestamps endpoin
 
 Timestamps are in seconds from the start of the audio file. The `end` of the last word in a segment's script section gives you the boundary for that segment's audio content.
 
-### ElevenLabs Speech-to-Text timing
+STT output may include additional fields like confidence scores -- ignore those. Focus on `word`, `start`, and `end`. If a JSON file uses a different structure (e.g., ElevenLabs Scribe uses `text` instead of `word` and includes `spacing` entries), adapt by looking for word-level entries with start/end time fields. The core need is: which word was spoken at which timestamp.
 
-ElevenLabs STT output has a similar structure with word-level timestamps. The format may include additional fields like confidence scores -- ignore those. Focus on `word`, `start`, and `end`.
+The timing words are what the STT **heard**, not the script text. Expect STT spellings of names and terms: "Videowright" can appear as "VideoWrite" or "video right", "3D" as "three D", "Three.js" as "3 .js".
 
-If the JSON structure differs from the above (ElevenLabs may update their format), adapt by looking for word-level entries with start/end time fields. The core need is: which word was spoken at which timestamp.
+The `[[pause]]` markers from the provider script mark the segment boundaries and animation beats. Use them to find the break points: each marker sits between the last word before it and the first word after it.
 
 ## The sync procedure
 
@@ -63,8 +63,8 @@ If the JSON structure differs from the above (ElevenLabs may update their format
 Walk through the provider timing JSON word by word. For each segment's script section in PLAN.md, find the corresponding words in the timing data by text matching.
 
 - Match is case-insensitive and ignores punctuation.
-- Provider timing may include words from pause markers or annotations that were in the provider script but not the PLAN script -- skip those.
-- If the provider timing has significantly different text (indicating the TTS changed wording), flag this to the user and ask which text to use.
+- Match loosely: a word that sounds like the script word (STT spelling of a name or term, a word split in two) is a match.
+- If the timing has significantly different text (indicating the TTS changed wording), flag this to the user and ask which text to use. In the AI flow, the retime check already rejects takes with dropped or repeated phrases.
 
 ### Step 2: Find segment boundaries
 
@@ -160,7 +160,7 @@ After each adjustment, re-present the timing. When the user confirms, write it i
 
 | Situation | Behavior |
 |---|---|
-| Provider timing JSON is missing | Error. The user must download it from the provider portal. Direct them to the provider walkthrough. |
+| Timing JSON is missing | Error. In the AI flow, run the retime step ([retime.md](retime.md)). In the manual flow, direct the user to the STT walkthrough ([providers/manual.md](providers/manual.md)). |
 | Words in timing do not match the script | Likely the TTS changed wording. Flag specific mismatches, ask user whether to use TTS text or original script text for alignment. |
 | Segment has no script (silent segment) | Use the segment's existing `advances` values. The segment passes through without voiceover. |
 | Audio is significantly shorter/longer than expected | Apply "audio always wins" -- compress or stretch. Flag the discrepancy so the user can decide if they want to re-record or adjust the video. |

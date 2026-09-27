@@ -10,8 +10,8 @@ Videowright supports voiceover audio integrated into video playback. A voiceover
 
 Two production flows are supported:
 
-- **AI-generated** -- write a script, transform it with v2-targeted provider annotations, generate audio via ElevenLabs (API key or web portal), and import the audio and per-word timing JSON.
-- **Manual** -- user provides their own audio file, then runs it through ElevenLabs Speech-to-Text to get per-word timing data for sync.
+- **AI-generated** -- write a script with `[[pause]]` markers, generate audio with Gemini 3.8 Flash TTS (via OpenRouter) or ElevenLabs v3 (API key or web portal), then transcribe it, check it, and set the pause lengths with the retime tool.
+- **Manual** -- user provides their own audio file, then runs it through Speech-to-Text (OpenRouter or ElevenLabs) to get per-word timing data for sync.
 
 Both flows produce the same output: a `voiceover.ts` file with a `Voiceover` object that includes the audio path and a `Timing` object.
 
@@ -24,20 +24,46 @@ When the user asks to "add a voiceover" or "generate a voiceover", ask:
 - **AI generation** -- follow Flow A below.
 - **User-provided audio** -- follow Flow B below.
 
-### Flow A: AI generation (ElevenLabs)
+### Flow A: AI generation
 
-1. **Approach and voice selection.** Ask API key vs. portal, then (API only) which voice from the curated catalog. See [voiceover/providers/elevenlabs.md](voiceover/providers/elevenlabs.md) for the mode selection prompt and [voice catalog](#curated-voice-catalog).
+1. **Provider and voice selection.** Ask which provider to use (see [Provider choice](#provider-choice)), then present that provider's voice catalog ([Gemini](#gemini-voices) or [ElevenLabs](#elevenlabs-voices)). ElevenLabs users also pick API key vs. portal (see [voiceover/providers/elevenlabs.md](voiceover/providers/elevenlabs.md#mode-selection)).
 2. **Style intake.** Ask the user about tone and emotional arc preferences. See [voiceover/style_intake.md](voiceover/style_intake.md).
 3. **Script.** Write or integrate the VO script into PLAN.md. See [voiceover/script_writing.md](voiceover/script_writing.md).
-4. **Provider script.** Transform the PLAN script into `provider_script.md` with v2-targeted annotations (SSML `<break>` tags, punctuation-driven prosody -- no v3 emotion tags). See [voiceover/provider_script.md](voiceover/provider_script.md).
-5. **Audio generation.** Follow the sub-flow for the approach chosen in step 1. See [voiceover/providers/elevenlabs.md](voiceover/providers/elevenlabs.md).
-6. **Sync timing.** Read the provider timing JSON and compute a `Timing` object. See [voiceover/sync_algorithm.md](voiceover/sync_algorithm.md).
-7. **Write `voiceover.ts`.** Create the typed module exporting a `Voiceover` object.
-8. **Audio plan and build.** Create or update `audio/audio_plan.md` with a VO cue pointing at this voiceover. For VO-only videos, the plan is minimal (single cue, full file, placed at 0s -- see [audio_plan.md](audio_plan.md) for the VO-only shortcut). Then build the track via [build.md](build.md). The build workflow handles approval, timeline.ts update, and sync.
+4. **Provider script.** Transform the PLAN script into `provider_script.md`: plain spoken text with `[[pause Xs]]` markers at segment boundaries and animation beats. See [voiceover/provider_script.md](voiceover/provider_script.md).
+5. **Audio generation.** Generate the TTS take as `raw.mp3`. See [voiceover/providers/gemini.md](voiceover/providers/gemini.md) or [voiceover/providers/elevenlabs.md](voiceover/providers/elevenlabs.md).
+6. **Retime.** Transcribe the take (STT), check it against the script (regenerate bad takes), and set every `[[pause]]` to its exact length. Produces `audio.mp3` and `timing.json`. See [voiceover/retime.md](voiceover/retime.md).
+7. **Sync timing.** Read `timing.json` and compute a `Timing` object. See [voiceover/sync_algorithm.md](voiceover/sync_algorithm.md).
+8. **Write `voiceover.ts`.** Create the typed module exporting a `Voiceover` object.
+9. **Audio plan and build.** Create or update `audio/audio_plan.md` with a VO cue pointing at this voiceover. For VO-only videos, the plan is minimal (single cue, full file, placed at 0s -- see [audio_plan.md](audio_plan.md) for the VO-only shortcut). Then build the track via [build.md](build.md). The build workflow handles approval, timeline.ts update, and sync.
 
-### Curated voice catalog
+### Provider choice
 
-When the user picks the **API key** approach in step 1, immediately present this catalog (default is **Asher** if no preference):
+Check which keys `.env` already has (key names only -- `grep -c '^OPENROUTER_API_KEY=' .env`; never print values). Then ask:
+
+> Which text-to-speech provider should we use?
+>
+> 1. **Gemini 3.8 Flash TTS via OpenRouter** -- Recommended (perfect if you already have OpenRouter keys). Natural, expressive delivery. About $0.01-0.02 per minute of audio, pay as you go. One key covers everything.
+> 2. **ElevenLabs v3** -- Recommended (if you have an ElevenLabs subscription). Very expressive, large voice library. API needs a paid plan; the web portal works with any plan.
+
+If `.env` has only one of the two keys, say so and suggest that provider. If the user has no preference, use Gemini.
+
+### Gemini voices
+
+When the user picks **Gemini**, present this catalog (default is **Charon** if no preference):
+
+| # | Voice | Description |
+|---|---|---|
+| 1 | **Charon** | Male. Google's "informative" voice: clear, confident, and steady, with a measured pace (~140 WPM in tests). A natural fit for tech explainers, product demos, and tutorials. The default. |
+| 2 | **Sadaltager** | Male. Google's "knowledgeable" voice: warm and composed, a little quicker (~150 WPM). Sounds like an expert talking you through a topic -- good for walkthroughs and educational content. |
+| 3 | **Sulafat** | Female. Google's "warm" voice: friendly and relaxed, with the most unhurried pace of the set (~140 WPM). Good for storytelling, onboarding, and brand videos that should feel approachable. |
+| 4 | **Kore** | Female. Google's "firm" voice: crisp, assured, and direct, with a brisk pace (~150 WPM). Good for product launches, announcements, and punchy marketing. |
+| 5 | **Other** | Any of Google's 30 prebuilt voices, e.g. Aoede (breezy), Leda (youthful), Puck (upbeat), Iapetus (clear). Preview them at [Google AI Studio](https://aistudio.google.com/generate-speech). |
+
+Save the voice name to the `voice` field in `voiceover.ts`, and set it as `VOICE` in `generate.sh`.
+
+### ElevenLabs voices
+
+When the user picks **ElevenLabs** with the **API key** approach, present this catalog (default is **Asher** if no preference):
 
 | # | Voice | Description | Preview |
 |---|---|---|---|
@@ -47,17 +73,17 @@ When the user picks the **API key** approach in step 1, immediately present this
 | 4 | **Hanna** | Professional American female voice with a polished, authoritative delivery. Clear articulation and steady pacing make her an excellent choice for informative narration, e-learning modules, and corporate voiceover. She conveys competence and credibility without sounding stiff or robotic. Best when you need a voice that commands attention while remaining approachable in instructional or business contexts. | [Listen](https://elevenlabs.io/app/voice-library?voiceId=Hh0rE70WfnSFN80K8uJC) |
 | 5 | **Other** | Provide any ElevenLabs voice ID. Browse voices at the [ElevenLabs Voice Library](https://elevenlabs.io/app/voice-library) to find one that fits your project. | -- |
 
-If the user does not pick, default to **Asher**. Save the selected voice ID to the `eleven_labs_voice_id` field in the `voiceover.ts` file (not as an env var). If the user picks "Other", ask them to provide the voice ID.
+If the user does not pick, default to **Asher**. Save the selected voice ID to the `voice` field in the `voiceover.ts` file (not as an env var). If the user picks "Other", ask them to provide the voice ID.
 
 Portal users skip this catalog -- they pick a voice visually in the ElevenLabs UI during audio generation (step 5).
 
 ### Flow B: Manual (user-provided audio)
 
 1. **Get the audio.** Ask the user to provide or drop an audio file into `audio/originals/voiceovers/<slug>/`.
-2. **Generate transcript and timing.** Walk the user through ElevenLabs Speech-to-Text to get per-word timing data. See [voiceover/providers/manual.md](voiceover/providers/manual.md).
-3. **Sync timing.** Same as Flow A step 6.
-4. **Write `voiceover.ts`.** Same as Flow A step 7.
-5. **Audio plan and build.** Same as Flow A step 8.
+2. **Generate transcript and timing.** Get per-word timing data with Speech-to-Text (OpenRouter API, ElevenLabs API, or ElevenLabs portal). See [voiceover/providers/manual.md](voiceover/providers/manual.md).
+3. **Sync timing.** Same as Flow A step 7.
+4. **Write `voiceover.ts`.** Same as Flow A step 8.
+5. **Audio plan and build.** Same as Flow A step 9.
 
 ## File and folder conventions
 
@@ -74,10 +100,12 @@ videos/<video-slug>/
       voiceovers/
         <vo-slug>/
           voiceover.ts             # typed Voiceover object (default export)
-          audio.mp3                # audio file (mp3 or wav; any name works, referenced from voiceover.ts)
-          timing.json              # provider-supplied per-word timings (optional)
-          provider_script.md       # provider-annotated script (AI flow only)
-          generate.sh              # API generation script (AI flow only)
+          audio.mp3                # final audio (mp3 or wav; any name works, referenced from voiceover.ts)
+          timing.json              # per-word timings for audio.mp3
+          provider_script.md       # script with [[pause]] markers (AI flow only)
+          generate.sh              # TTS + STT generation script (AI API flows only)
+          raw.mp3                  # TTS take before retime (AI flow only)
+          raw_stt.json             # STT word timings for raw.mp3 (AI flow only)
     tracks/
       v1/
         track.ts                   # typed AudioTrack object (default export)
@@ -96,11 +124,13 @@ videos/<video-slug>/
 ```ts
 type Voiceover = {
   audio_file: string;             // path relative to the voiceover.ts file
-  provider: "elevenlabs" | "manual";
+  provider: "gemini" | "elevenlabs" | "manual";
   provider_timing_file?: string;  // path relative to the voiceover.ts file
   timing: Timing;
   notes?: string;
-  eleven_labs_voice_id?: string;  // ElevenLabs voice ID; defaults to Asher if omitted
+  voice?: string;                 // Gemini voice name or ElevenLabs voice ID
+  model?: string;                 // e.g. "google/gemini-3.8-flash-tts" or "eleven_v3"
+  eleven_labs_voice_id?: string;  // deprecated: use `voice` (older voiceovers only)
 };
 ```
 
@@ -134,9 +164,10 @@ import type { Voiceover } from 'videowright';
 
 const voiceover: Voiceover = {
   audio_file: './audio.mp3',
-  provider: 'elevenlabs',
+  provider: 'gemini',
   provider_timing_file: './timing.json',
-  eleven_labs_voice_id: 'tMvyQtpCVQ0DkixuYm6J', // Asher
+  voice: 'Charon',
+  model: 'google/gemini-3.8-flash-tts',
   timing: {
     perSegment: {
       'intro':          [4.2],
@@ -144,7 +175,7 @@ const voiceover: Voiceover = {
       'outro':          [3.5],
     },
   },
-  notes: 'Warm male voice, conversational tone',
+  notes: 'Style: confident, warm tech explainer; conversational, natural pace',
 };
 
 export default voiceover;

@@ -2,24 +2,27 @@
 
 ## When this is loaded
 
-You need to guide the user through ElevenLabs to generate voiceover audio and per-word timing data. This reference covers both the API-key flow (automated) and the portal flow (manual web UI).
+The user picked **ElevenLabs v3** in Flow A step 1 (see [voiceover.md](../../voiceover.md#flow-a-ai-generation)). This reference covers the API-key flow (automated) and the portal flow (manual web UI). It also covers ElevenLabs Speech-to-Text (STT) for the retime step and for the manual voiceover flow (Flow B).
 
-This reference also covers Speech-to-Text for the manual voiceover flow (Flow B).
+- **Model:** `eleven_v3` (ElevenLabs' most expressive model).
+- **Voice:** from the [ElevenLabs voice catalog](../../voiceover.md#elevenlabs-voices). Default: **Asher**.
+- **Limit:** 5,000 characters per request (~5 minutes of speech). See [Long scripts](#long-scripts).
+- **Pauses:** v3 does not support SSML `<break>` tags. `retime.mjs text --pause-tag "[pause]"` puts a `[pause]` tag at each `[[pause]]` marker; the retime step then sets the exact length (see [retime.md](../retime.md)).
 
 ## Mode selection
 
-This question is asked at the start of Flow A (before style intake). Present the user with two options:
+Ask this after the user picks ElevenLabs:
 
 > Two ways to generate the voiceover with ElevenLabs:
 >
-> 1. **API key (recommended for repeated use)** -- set up once in `.env`, then the agent generates audio and timings via curl. **Requires a paid ElevenLabs plan** (not available on the free tier). Note: granting the agent API access means it will spend your ElevenLabs credits, which costs real money.
-> 2. **Portal (web UI, works with any plan)** -- the agent walks you through TTS in the ElevenLabs web portal, then STT to extract timings.
+> 1. **API key (recommended for repeated use)** -- set up once in `.env`, then the agent generates the audio via curl. **Requires a paid ElevenLabs plan** (not available on the free tier). Note: granting the agent API access means it will spend your ElevenLabs credits, which costs real money.
+> 2. **Portal (web UI, works with any plan)** -- the agent walks you through TTS in the ElevenLabs web portal, then STT to get word timings.
 >
 > API key is faster and reusable across projects. Portal needs no setup but takes more clicks per video.
 >
 > If you don't have an account: open https://elevenlabs.io and sign up first.
 
-After the user picks, if they chose **API key**, immediately present the curated voice catalog (see [voiceover.md curated voice catalog](../../voiceover.md#curated-voice-catalog)). Then continue with style intake and script writing. When it is time for audio generation, dispatch into the appropriate sub-flow below.
+After the user picks, if they chose **API key**, immediately present the [ElevenLabs voice catalog](../../voiceover.md#elevenlabs-voices). Portal users pick a voice in the ElevenLabs UI. Then continue with style intake and script writing. When it is time for audio generation, dispatch into the sub-flow below.
 
 ---
 
@@ -27,15 +30,13 @@ After the user picks, if they chose **API key**, immediately present the curated
 
 ### Step 1: Credit / cost warning
 
-Before generating audio, warn the user about costs:
-
-> **Cost notice:** ElevenLabs charges credits for TTS generation. A 60-second voiceover (~900 characters) costs roughly 900-1,000 credits, which is a small fraction of most paid plan quotas.
+> **Cost notice:** ElevenLabs charges about 1 credit per character for v3. A 60-second voiceover (~900 characters) costs about 900 credits, a small part of most paid plan quotas. Each regenerated take costs the same again.
 >
 > Check your plan's remaining quota at https://elevenlabs.io/app/subscription before generating.
 
-<!-- TODO: Verify current pricing tiers -- ElevenLabs pricing may have changed. The rough estimate above is based on ~1 credit per character for standard voices. -->
-
 ### Step 2: Get the API key
+
+Skip this step if `.env` already has `ELEVENLABS_API_KEY` (check with `grep -c '^ELEVENLABS_API_KEY=' .env` -- do not print the value).
 
 Guide the user:
 
@@ -47,8 +48,8 @@ Guide the user:
 > 4. **Enable these permissions** on the key before creating it. The key creation UI has toggles for which features the key can access. Enable all of the following:
 >    - **Text to Speech** -- required for generating voiceover audio.
 >    - **Speech to Text** -- required for extracting word-level timing from audio.
->    - **Sound Effects** -- for upcoming SFX generation features.
->    - **Music Generation** -- for upcoming background music features.
+>    - **Sound Effects** -- for SFX generation.
+>    - **Music Generation** -- for background music generation.
 >
 >    If you don't see individual permission toggles, create the key with full access -- the default may already include all required permissions.
 > 5. Click **Create** and copy the key.
@@ -62,102 +63,53 @@ Guide the user:
 > 2. Add this line: `ELEVENLABS_API_KEY=your-key-here`
 > 3. Make sure `.env` is in your `.gitignore` (add it if not).
 
-The agent reads the key via `process.env.ELEVENLABS_API_KEY` when running curl commands.
+### Step 3: Write `generate.sh`
 
-### Step 3: Voice (already selected)
-
-The voice was chosen during approach selection (Flow A step 1). Use this voice ID when constructing the API call below, and write it to the `eleven_labs_voice_id` field when creating `voiceover.ts` in step 8. If no voice was explicitly chosen, default to Asher (`tMvyQtpCVQ0DkixuYm6J`). No action needed here -- proceed to audio generation.
-
-The voice ID lookup table for the curated catalog:
-
-| Voice | ID |
-|---|---|
-| Asher (default) | `tMvyQtpCVQ0DkixuYm6J` |
-| Cecily | `Uc7anshoV8mdBhDnEZEX` |
-| Don | `8IbUB2LiiCZ85IJAHNnZ` |
-| Hanna | `Hh0rE70WfnSFN80K8uJC` |
-
-### Step 4: Generate audio with timestamps
-
-Use the text-to-speech-with-timestamps endpoint. This returns both the audio and per-word timing in a single request.
-
-**Endpoint:** `POST https://api.elevenlabs.io/v1/text-to-speech/{voice_id}/with-timestamps`
-
-The agent reads the voice ID from the `eleven_labs_voice_id` field in `voiceover.ts`. If not set, default to Asher: `tMvyQtpCVQ0DkixuYm6J`.
-
-The agent constructs and runs a curl command like this:
+Write a script into the voiceover folder so the take can be regenerated. It sends the provider script text (each `[[pause]]` marker turned into a `[pause]` tag by `retime.mjs text`) and writes `raw.mp3`:
 
 ```bash
-# Read the provider script (everything below the --- line)
-SCRIPT_TEXT=$(sed '1,/^---$/d' "videos/<video>/audio/originals/voiceovers/<slug>/provider_script.md")
+#!/usr/bin/env bash
+# ElevenLabs v3 TTS. Run from the project root.
+set -euo pipefail
+set -a; . ./.env; set +a
 
-# Voice ID from eleven_labs_voice_id (default: Asher tMvyQtpCVQ0DkixuYm6J)
-VOICE_ID="<selected voice ID>"
+VO_DIR="videos/<video>/audio/originals/voiceovers/<slug>"
+VOICE_ID="tMvyQtpCVQ0DkixuYm6J"  # Asher
+TEXT="$(node node_modules/videowright/skill/scripts/retime.mjs text "$VO_DIR/provider_script.md" \
+  --pause-tag "[pause]")"
+[ -n "$TEXT" ] || { echo "ERROR: no text from provider_script.md" >&2; exit 1; }
 
-curl -X POST "https://api.elevenlabs.io/v1/text-to-speech/${VOICE_ID}/with-timestamps" \
+HTTP_CODE=$(curl -sS -w "%{http_code}" -o "$VO_DIR/raw.mp3" \
+  -X POST "https://api.elevenlabs.io/v1/text-to-speech/${VOICE_ID}?output_format=mp3_44100_128" \
   -H "xi-api-key: ${ELEVENLABS_API_KEY}" \
   -H "Content-Type: application/json" \
-  -d "$(jq -n \
-    --arg text "$SCRIPT_TEXT" \
-    --arg model "eleven_multilingual_v2" \
-    '{
-      text: $text,
-      model_id: $model,
-      voice_settings: {
-        stability: 0.5,
-        similarity_boost: 0.75
-      }
-    }'
-  )" \
-  -o "$TMPDIR/elevenlabs_response.json"
+  -d "$(jq -n --arg text "$TEXT" '{
+    text: $text,
+    model_id: "eleven_v3",
+    voice_settings: { stability: 0.5 }
+  }')")
+
+if [ "$HTTP_CODE" != "200" ]; then
+  echo "ERROR: ElevenLabs returned HTTP $HTTP_CODE" >&2; head -c 800 "$VO_DIR/raw.mp3" >&2; echo >&2
+  rm -f "$VO_DIR/raw.mp3"; exit 1
+fi
+echo "Wrote $VO_DIR/raw.mp3 ($(ffprobe -v error -show_entries format=duration -of csv=p=0 "$VO_DIR/raw.mp3")s)"
 ```
 
-<!-- TODO: Verify the exact response shape of the with-timestamps endpoint. The format below is based on known ElevenLabs API behavior -- confirm against current docs. -->
+Request notes:
 
-**Processing the response:**
+- `stability` for v3: `0.0` = Creative (most expressive, less stable), `0.5` = Natural (default), `1.0` = Robust (steady, ignores most audio tags). `similarity_boost` and `style` do not apply to v3.
+- Run with network access to `api.elevenlabs.io`.
 
-The response JSON contains base64-encoded audio and word-level alignment data. The agent must:
-
-1. **Extract the audio.** The response includes an `audio_base64` field. Decode and save it:
-
-```bash
-jq -r '.audio_base64' "$TMPDIR/elevenlabs_response.json" | base64 --decode > "videos/<video>/audio/originals/voiceovers/<slug>/audio.mp3"
-```
-
-2. **Extract the timing data.** The response includes an `alignment` field with per-character or per-word timing. Transform it into the standard timing JSON format and save:
-
-```bash
-jq '{
-  words: [.alignment.words[] | {word: .word, start: .start, end: .end}]
-}' "$TMPDIR/elevenlabs_response.json" > "videos/<video>/audio/originals/voiceovers/<slug>/timing.json"
-```
-
-If the response uses character-level alignment instead of word-level, aggregate characters into words by grouping on whitespace boundaries and using the start of the first character and end of the last character for each word.
-
-3. **Clean up** the temporary response file.
-
-### API flow output
-
-After a successful API call, the voiceover folder should contain:
-
-```
-audio/originals/voiceovers/<slug>/
-  provider_script.md       # already created in prior step
-  audio.mp3                # decoded from API response
-  timing.json              # extracted from API response
-```
-
-Proceed to the sync algorithm: [../sync_algorithm.md](../sync_algorithm.md).
+Then continue to [retime.md](../retime.md). For STT, use OpenRouter if the user has `OPENROUTER_API_KEY`, else [ElevenLabs Scribe](#speech-to-text-api) with the same ElevenLabs key.
 
 ---
 
 ## Flow 2: Portal (Web UI)
 
-The portal flow has two steps: TTS to generate audio, then STT to extract per-word timing.
-
 ### Step 1 -- Generate the audio (TTS)
 
-Portal users do **not** use the curated voice catalog -- they pick a voice visually in the ElevenLabs UI below.
+Run `node node_modules/videowright/skill/scripts/retime.mjs text <provider_script.md> --pause-tag "[pause]"` and show the output to the user in a code block. That is the text to paste (each `[[pause]]` marker turned into a `[pause]` tag).
 
 Guide the user:
 
@@ -165,46 +117,53 @@ Guide the user:
 >
 > 1. Open https://elevenlabs.io/app and sign in.
 > 2. Navigate to **Text to Speech** in the sidebar.
-> 3. **Important: Select the v2 model in the model dropdown.** Look for **"Eleven Multilingual v2"** (or **"Multilingual v2"**). Do NOT use the default v3 model -- v3 does not honor exact pause timing via `<break>` tags.
+> 3. Select the **Eleven v3** model in the model dropdown.
 > 4. Select a voice that matches your tone preferences. You can preview voices before generating.
-> 5. Paste the content from `audio/originals/voiceovers/<slug>/provider_script.md` (everything below the horizontal rule) into the text area.
+> 5. Paste the text from the code block above into the text area.
 > 6. Click **Generate**.
-> 7. Listen to the preview. If pauses or delivery need adjustment, update the provider script and regenerate.
-> 8. **Download the audio file.** Click the download button on the generated audio. Save as `audio.mp3`.
-> 9. Place the file in `audio/originals/voiceovers/<slug>/audio.mp3`.
+> 7. Listen to the preview. If the delivery needs changes, tell me and I will update the provider script.
+> 8. **Download the audio file** and save it as `audio/originals/voiceovers/<slug>/raw.mp3`.
 
-### Step 2 -- Extract timings (STT)
+Do not ask the user to adjust pauses in the portal. The retime step sets them.
 
-The TTS portal does not export per-word timing data. To get timings, run the generated audio through Speech-to-Text:
+### Step 2 -- Word timings (STT)
 
-> **Extracting word-level timing via Speech-to-Text:**
+The TTS portal does not export word timings. Get them from Speech-to-Text:
+
+> **Getting word-level timing via Speech-to-Text:**
 >
 > 1. In the ElevenLabs portal, switch to **Speech to Text** in the sidebar.
-> 2. Upload the audio file you just saved (`audio/originals/voiceovers/<slug>/audio.mp3`).
+> 2. Upload `audio/originals/voiceovers/<slug>/raw.mp3`.
 > 3. Wait for transcription to complete.
 > 4. **Export the result as JSON.** Look for an "Export" or "Download" option and select **JSON** format. **Do not use plain text export** -- plain text does not include per-word timing data.
-> 5. Save the JSON file as `audio/originals/voiceovers/<slug>/timing.json`.
+> 5. Save the JSON file as `audio/originals/voiceovers/<slug>/raw_stt.json`.
 
-### Portal flow output
-
-After both steps, the voiceover folder should contain:
-
-```
-audio/originals/voiceovers/<slug>/
-  provider_script.md       # already created in prior step
-  audio.mp3                # downloaded from TTS in step 1
-  timing.json              # exported from STT in step 2
-```
-
-Proceed to the sync algorithm: [../sync_algorithm.md](../sync_algorithm.md).
+Then continue to [retime.md](../retime.md), starting at the transcript check.
 
 ---
 
-## Speech-to-Text (for manual flow / Flow B)
+## Speech-to-Text (API)
 
-Used when the user provides their own audio and needs per-word timing data. This is the same STT process as portal step 2 above.
+Scribe v2 returns word timestamps. It uses the same `ELEVENLABS_API_KEY` (the key needs the **Speech to Text** permission):
 
-### Portal walkthrough: STT transcription
+```bash
+set -a; . ./.env; set +a
+VO_DIR="videos/<video>/audio/originals/voiceovers/<slug>"
+curl -sS -X POST https://api.elevenlabs.io/v1/speech-to-text \
+  -H "xi-api-key: ${ELEVENLABS_API_KEY}" \
+  -F model_id=scribe_v2 \
+  -F file=@"$VO_DIR/raw.mp3" \
+  -F timestamps_granularity=word \
+  -F language_code=en \
+  -F tag_audio_events=false \
+  -o "$VO_DIR/raw_stt.json"
+```
+
+The response has `words: [{text, start, end, type}]`, where `type` is `word` or `spacing`. `retime.mjs` reads this format directly.
+
+## Speech-to-Text (portal, for Flow B)
+
+Used when the user provides their own audio and does not use the API:
 
 > **Transcribing audio with ElevenLabs Speech-to-Text:**
 >
@@ -215,74 +174,39 @@ Used when the user provides their own audio and needs per-word timing data. This
 > 5. **Export as JSON.** Select the JSON export option -- plain text export does not include word timing data.
 > 6. Save the JSON file in `audio/originals/voiceovers/<slug>/` as `timing.json`.
 
-### Timing JSON format (STT)
-
-ElevenLabs STT output contains word-level timestamps:
-
-```json
-{
-  "words": [
-    {
-      "word": "Welcome",
-      "start": 0.12,
-      "end": 0.58,
-      "confidence": 0.98
-    }
-  ]
-}
-```
-
-Additional fields like `confidence` can be ignored for sync purposes. The sync algorithm uses only `word`, `start`, and `end`.
-
-### STT accuracy notes
-
-- STT may not perfectly transcribe the audio. Minor differences (filler words, slight wording changes) are normal.
-- When the STT transcript differs from the PLAN.md script, use the STT timestamps for timing but the PLAN.md script text for the canonical record.
-- Flag significant discrepancies to the user -- they may want to update PLAN.md to match what was actually spoken.
-
----
+If an exported JSON uses a different shape, convert it to the canonical format below: word text, start, and end for each word.
 
 ## Timing JSON format (canonical)
 
-Both flows produce the same timing JSON format at `audio/originals/voiceovers/<slug>/timing.json`:
-
 ```json
 {
   "words": [
-    {
-      "word": "Welcome",
-      "start": 0.0,
-      "end": 0.45
-    },
-    {
-      "word": "to",
-      "start": 0.47,
-      "end": 0.55
-    }
+    { "word": "Welcome", "start": 0.0, "end": 0.45 },
+    { "word": "to", "start": 0.47, "end": 0.55 }
   ]
 }
 ```
 
-Fields:
 - `word`: the spoken word
-- `start`: seconds from audio start when the word begins
-- `end`: seconds from audio start when the word ends
+- `start` / `end`: seconds from the start of the audio file
 
-The exact JSON structure may vary by ElevenLabs endpoint or export version. Adapt by looking for word-level entries with start/end timestamps. The sync algorithm needs: word text, start time, end time.
+## Audio tags (v3)
 
-## Known limitations
+v3 supports inline audio tags in square brackets, e.g. `[excited]`, `[warmly]`, `[whispers]`, `[laughs]`, `[sighs]`. Use them sparingly, only where the tone must change, at the start of a sentence. The default is no tags. See [provider_script.md](../provider_script.md#emotion-and-tone).
 
-- **`<break>` tags cannot appear at the very start of audio.** ElevenLabs does not support a `<break time="Ns" />` tag as the first element in the provider script. The TTS engine requires spoken text before the first break. If the video needs an initial silent pause before narration begins, that must be handled separately (e.g., by adding a leading silent segment in the timeline). A proper initial-pause feature is planned but not yet available.
+## Long scripts
+
+v3 accepts at most 5,000 characters per request. For longer scripts, split the provider script at a `[[pause]]` marker, generate one `raw_partN.mp3` per part with the same voice and settings, and join them into `raw.mp3` (see [Join clips end to end](../../ffmpeg_cookbook.md#join-clips-end-to-end)). Then run the retime step on the joined file.
 
 ## Troubleshooting
 
 | Issue | Resolution |
 |---|---|
 | API returns 401 | Check that `ELEVENLABS_API_KEY` is set correctly in `.env` and the key is valid. |
+| API returns 401/403 on STT only | The key does not have the **Speech to Text** permission. Edit the key or create a new one. |
 | API returns 429 | Rate limited. Wait a moment and retry, or check your plan's quota. |
-| Audio quality is poor | Re-generate with a different voice or adjusted settings. Try adjusting `stability` (higher = more consistent) and `similarity_boost` in the API call. |
-| Pauses are too short/long | Adjust the `provider_script.md` pause annotations and regenerate. For `<break>` tags, adjust the `time` value. |
-| TTS mispronounces a word | Add phonetic spelling to the provider script and regenerate. |
-| STT misses words or adds extra words | Use the best-match approach in the sync algorithm. Flag mismatches to the user. |
-| Portal does not show v2 model option | The model may be listed as "Eleven Multilingual v2" or similar. Check the model dropdown carefully. If v2 is not available, the `<break>` tags for exact pause timing will not work reliably in v3 -- note this to the user. |
+| API returns 400 about text length | The text is over 5,000 characters. See [Long scripts](#long-scripts). |
+| Delivery is flat or over-acted | Change `stability` (lower = more expressive, higher = steadier), or try another voice. |
+| Transcript check fails | Regenerate (takes vary). If it fails 3 times, raise `stability` to `1.0`, remove audio tags, and tell the user. |
+| TTS mispronounces a word | Add a phonetic spelling in the provider script and regenerate. |
 | STT JSON export option not visible | Look for a download/export button after transcription completes. The option may be labeled "Export", "Download", or appear as a dropdown with format choices. Select JSON specifically. |

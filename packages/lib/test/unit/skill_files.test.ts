@@ -65,13 +65,14 @@ describe("skill file structure", () => {
 			"animation_sync.md",
 			"provider_script.md",
 			"providers",
+			"retime.md",
 			"script_writing.md",
 			"style_intake.md",
 			"sync_algorithm.md",
 		]);
 
 		const providerFiles = readdirSync(resolve(voDir, "providers")).sort();
-		expect(providerFiles).toEqual(["elevenlabs.md", "manual.md"]);
+		expect(providerFiles).toEqual(["elevenlabs.md", "gemini.md", "manual.md"]);
 	});
 
 	it("references/audio/sfx/ has the expected sub-references", () => {
@@ -218,6 +219,40 @@ describe("skill file structure", () => {
 		expect(content).toContain("hello-intro");
 		expect(content).toContain("editorial-mono-sample-kinetic");
 		expect(content).not.toContain("{{");
+	});
+
+	it("ships the voiceover retime script", () => {
+		expect(existsSync(resolve(SKILL_ROOT, "scripts/retime.mjs"))).toBe(true);
+	});
+
+	it("voiceover reference links resolve to existing files and headings", () => {
+		const audioDir = resolve(SKILL_ROOT, "references/audio");
+		const voDir = resolve(audioDir, "voiceover");
+		const docs = [
+			resolve(audioDir, "voiceover.md"),
+			...readdirSync(voDir)
+				.filter((f) => f.endsWith(".md"))
+				.map((f) => resolve(voDir, f)),
+			...readdirSync(resolve(voDir, "providers")).map((f) => resolve(voDir, "providers", f)),
+		];
+		// GitHub-style heading anchors.
+		const anchors = (file: string) =>
+			[...readFileSync(file, "utf-8").matchAll(/^#+ (.+)$/gm)].map((m) =>
+				m[1]
+					.toLowerCase()
+					.replace(/[^a-z0-9 -]/g, "")
+					.replace(/ /g, "-"),
+			);
+		for (const doc of docs) {
+			const content = readFileSync(doc, "utf-8");
+			for (const [, target] of content.matchAll(/\]\(([^)\s]+)\)/g)) {
+				if (/^https?:/.test(target)) continue;
+				const [path, anchor] = target.split("#");
+				const file = path ? resolve(doc, "..", path) : doc;
+				expect(existsSync(file), `${doc}: link ${target}`).toBe(true);
+				if (anchor) expect(anchors(file), `${doc}: link ${target}`).toContain(anchor);
+			}
+		}
 	});
 
 	it("SKILL.md reference paths resolve to existing files", () => {
