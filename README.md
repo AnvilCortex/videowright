@@ -8,6 +8,8 @@ Videowright creates demo videos, explainer videos, and product walkthroughs from
 
 <video src="https://github.com/user-attachments/assets/ba106686-3ff5-4d57-8fbb-141ad40c8c86" width="600" controls></video>
 
+Or check out the [blooper reel](https://github.com/user-attachments/assets/a1c86e90-8e15-491e-9b05-4e35cf2faa37), directed by my son!
+
 ## Overview
 
 - **Video from prompt** -- generate an animated video, simply from a prompt
