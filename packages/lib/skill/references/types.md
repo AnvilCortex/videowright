@@ -159,10 +159,12 @@ A single voiceover source file. Stored at `videos/<video>/audio/originals/voiceo
 ```ts
 type Voiceover = {
   audio_file: string;
-  provider: "elevenlabs" | "manual";
+  provider: "gemini" | "elevenlabs" | "manual";
   provider_timing_file?: string;
   timing: Timing;
   notes?: string;
+  voice?: string;
+  model?: string;
   eleven_labs_voice_id?: string;
 };
 ```
@@ -174,7 +176,9 @@ type Voiceover = {
 | `provider_timing_file` | No | Provider timing JSON path, relative to `voiceover.ts` directory. |
 | `timing` | Yes | Per-segment advance timing synced to this audio. |
 | `notes` | No | Freeform notes about this voiceover. |
-| `eleven_labs_voice_id` | No | ElevenLabs voice ID for TTS generation. Defaults to Asher (`tMvyQtpCVQ0DkixuYm6J`) when omitted. Ignored when provider is `"manual"`. |
+| `voice` | No | Provider voice for TTS generation: a Gemini voice name (e.g. `"Charon"`) or an ElevenLabs voice ID. Ignored when provider is `"manual"`. |
+| `model` | No | Provider model for TTS generation (e.g. `"google/gemini-3.8-flash-tts"`, `"eleven_v3"`). Ignored when provider is `"manual"`. |
+| `eleven_labs_voice_id` | No | Deprecated -- use `voice`. ElevenLabs voice ID written by older versions of the skill. |
 
 See [audio/voiceover.md](audio/voiceover.md) for the full voiceover flow and file conventions.
 

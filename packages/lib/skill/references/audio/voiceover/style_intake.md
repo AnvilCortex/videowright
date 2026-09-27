@@ -6,7 +6,7 @@ You are preparing to generate a voiceover and need to understand the user's tone
 
 ## Purpose
 
-Style intake captures preferences that the agent **directly uses** when writing the provider script: tone, emotional arc, and reference style. Voice selection (which voice to use, gender, accent, speaking rate) is handled separately -- in the ElevenLabs provider walkthrough for API-mode users, or visually in the portal UI for portal-mode users.
+Style intake captures preferences that the agent **directly uses** when writing the provider script: tone, emotional arc, and reference style. Voice selection (which voice to use, gender, accent, speaking rate) is handled separately -- from the provider's voice catalog in [voiceover.md](../voiceover.md#provider-choice), or visually in the portal UI for ElevenLabs portal users.
 
 ## Questions to ask
 
@@ -27,23 +27,23 @@ Ask these questions before generating the provider script. Group them into a sin
 
 ## How answers map to provider script
 
-The agent targets ElevenLabs v2, which does not have v3-style emotion tags (`[excited]`, `[calm]`, etc.). Instead, tone is conveyed through punctuation, sentence structure, and pacing cues:
+Tone is conveyed mostly through punctuation, sentence structure, and word choice. Each provider adds one light control: a style string for Gemini, and optional audio tags for ElevenLabs v3.
 
 | Preference | Provider script effect |
 |---|---|
-| Tone: enthusiastic | Exclamation marks, short punchy sentences, emphatic word choice |
-| Tone: calm/serious | Longer sentences, measured pacing, more pauses between phrases |
-| Tone: warm | Natural conversational phrasing -- the default for most v2 voices |
-| Emotional arc | Vary sentence structure and punctuation across sections of the script |
+| Tone: enthusiastic | Exclamation marks, short punchy sentences, emphatic word choice. Gemini style: "upbeat and energetic". |
+| Tone: calm/serious | Longer sentences, measured pacing. Gemini style: "calm, measured and authoritative". |
+| Tone: warm | Natural conversational phrasing -- the default. Gemini style: "confident, warm tech explainer". |
+| Emotional arc | Vary sentence structure and punctuation across sections of the script. ElevenLabs v3: optionally one audio tag where the tone changes. |
 
-See [provider_script.md](provider_script.md) for the full v2 writing toolkit.
+See [provider_script.md](provider_script.md#emotion-and-tone) for the full writing toolkit and provider controls.
 
 ## What NOT to ask
 
 Voice attributes (gender, accent, age, speaking rate) are **not** part of style intake. They are chosen at voice-selection time:
 
-- **API-mode users** pick from a curated voice catalog during the ElevenLabs provider walkthrough (see [providers/elevenlabs.md](providers/elevenlabs.md)).
-- **Portal-mode users** select a voice visually in the ElevenLabs web UI.
+- **Gemini and ElevenLabs API users** pick from the provider's curated voice catalog (see [voiceover.md](../voiceover.md#provider-choice)).
+- **ElevenLabs portal users** select a voice visually in the ElevenLabs web UI.
 
 If the user volunteers voice preferences during style intake, acknowledge them and note that they will be applied during voice selection.
 

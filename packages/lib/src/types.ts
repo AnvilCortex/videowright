@@ -137,7 +137,7 @@ export type Voiceover = {
 	 */
 	audio_file: string;
 	/** Provider that produced the audio. */
-	provider: "elevenlabs" | "manual";
+	provider: "gemini" | "elevenlabs" | "manual";
 	/**
 	 * Provider timing JSON path. Same resolution rules as `audio_file`:
 	 * relative to voiceover.ts directory on disk, absolute after
@@ -149,9 +149,18 @@ export type Voiceover = {
 	/** Freeform notes about this voiceover. */
 	notes?: string;
 	/**
-	 * ElevenLabs voice ID for this voiceover. Used by the API flow to select
-	 * the voice for TTS generation. When omitted, defaults to Asher
-	 * (`tMvyQtpCVQ0DkixuYm6J`). Ignored when provider is "manual".
+	 * Provider voice used for TTS generation: a Gemini voice name (e.g.
+	 * `"Charon"`) or an ElevenLabs voice ID. Ignored when provider is "manual".
+	 */
+	voice?: string;
+	/**
+	 * Provider model used for TTS generation (e.g. `"google/gemini-3.8-flash-tts"`
+	 * or `"eleven_v3"`). Ignored when provider is "manual".
+	 */
+	model?: string;
+	/**
+	 * @deprecated Use `voice`. ElevenLabs voice ID written by older versions
+	 * of the skill.
 	 */
 	eleven_labs_voice_id?: string;
 };

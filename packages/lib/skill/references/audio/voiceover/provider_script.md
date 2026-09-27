@@ -2,23 +2,23 @@
 
 ## When this is loaded
 
-You have a confirmed script in PLAN.md and need to transform it into a provider-specific format for TTS generation.
+You have a confirmed script in PLAN.md and need to transform it into the text for TTS generation.
 
 ## What `provider_script.md` is
 
-The `provider_script.md` file is a transformation of the PLAN.md script with provider-specific annotations. It is the text that the user copies into the TTS portal (or the agent sends via API) to generate audio. It lives at:
+The `provider_script.md` file is the PLAN.md script prepared for TTS: segment headings removed, `[[pause]]` markers added, and pronunciation fixes applied. It lives at:
 
 ```
 videos/<video>/audio/originals/voiceovers/<slug>/provider_script.md
 ```
 
-The file is markdown for human readability, but its content is the exact text to paste into the provider. Segment headings are stripped -- only the narration text and annotations are included.
+Everything below the `---` line is the script. `retime.mjs text` turns the `[[pause]]` markers into the provider's pause tag to make the text sent to the TTS provider; `retime.mjs apply` uses the markers to set the pause lengths after generation (see [retime.md](retime.md)).
 
-## Target: ElevenLabs v2
+## The approach
 
-All provider scripts target **ElevenLabs v2** (`eleven_multilingual_v2`). This model is chosen because it supports exact pause timing via SSML `<break>` tags, which is critical for syncing audio to video animations.
+Write **plain spoken text**. Let the TTS model choose intonation, emphasis, and the small pauses inside sentences -- current models (Gemini 3.8, ElevenLabs v3) do this well. Mark only the pauses that the video needs, with `[[pause Xs]]`. Each marker is sent to the model as a pause tag, so the model knows a pause is coming and makes one; the retime step then makes it exact. The audio is edited **only** at these markers, never between other words (see [retime.md](retime.md#rule-only-retime-a-pause-the-tts-was-told-to-make)).
 
-**Do NOT use v3-style tags.** ElevenLabs v3 introduced inline emotion tags like `[excited]`, `[calm]`, `[whispering]`, etc. These tags are **silently ignored** by the v2 model. Never include them in a provider script.
+**Do not write provider pause tags yourself** (`<break time="1s"/>`, `[pause]`, `<long pause>`, `<short pause>`). v3 does not support `<break>`, and in tests, Gemini pause tags on their own line or mid-sentence caused repeated phrases, tag names spoken aloud, and random noises. Instead, `retime.mjs text --pause-tag` adds the provider's pause tag at the end of the line before each `[[pause]]` marker (`[pause]` for v3, `<long pause>` for Gemini). In that position the tags tested clean in every take (8 of 8), and they give the model a natural gap to end the line, which the retime step then sets to the exact length.
 
 ## Generating the provider script
 
@@ -28,126 +28,104 @@ Extract the script sections in timeline order.
 
 ### Step 2: Apply delivery style through writing
 
-Since v2 does not have v3's emotion tag system, tone and emotion are conveyed through **how the text is written** -- punctuation, sentence structure, and word choice. The v2 model's prosody engine responds to natural language cues:
+Tone comes mostly from **how the text is written**:
 
-#### The v2 writing toolkit
-
-| Technique | Effect on v2 delivery | Example |
+| Technique | Effect on delivery | Example |
 |---|---|---|
-| **Exclamation marks** | Increased energy, slight pitch rise | "This changes everything!" |
+| **Exclamation marks** | More energy, slight pitch rise | "This changes everything!" |
 | **Question marks** | Rising intonation | "Ready to get started?" |
-| **Ellipsis** (`...`) | Natural micro-pause (~0.3-0.5s), trailing-off feel | "And then... something unexpected." |
-| **Em-dash** (`--`) | Brief breath pause (~0.2-0.4s), interruption feel | "The result -- stunning." |
-| **ALL CAPS** | Slight emphasis on the word (use sparingly) | "This is EXACTLY what we needed." |
+| **Ellipsis** (`...`) | Short hesitation, trailing-off feel | "And then... something unexpected." |
+| **Em-dash** (`--`) | Brief breath pause, interruption feel | "The result -- stunning." |
+| **ALL CAPS** | Emphasis on the word (use sparingly) | "This is EXACTLY what we needed." |
 | **Short punchy sentences** | Energetic, urgent pacing | "It's fast. It's reliable. It just works." |
-| **Long flowing sentences** | Calm, measured delivery | "Over the course of the next few minutes, we'll walk through each of the core features that make this possible." |
-| **Commas and semicolons** | Micro-pacing within a sentence | "First, the dashboard; then, the analytics." |
-| **Repeated punctuation** | Heightened emotion (use very sparingly) | "This is incredible!!" |
-| **Parenthetical asides** | Softer, conspiratorial tone | "The best part (and this surprised us too) is the speed." |
+| **Long flowing sentences** | Calm, measured delivery | "Over the next few minutes, we'll walk through each of the core features." |
+| **Commas** | Short breaths inside a sentence | "Edit a line, and the video re-syncs." |
 
-#### What v2 cannot do
+Write the way a person speaks: contractions, short sentences, commas where a speaker would breathe.
 
-- **No explicit emotion control.** You cannot tag a section as `[excited]` or `[whispering]`. The closest approximation is through writing style (see toolkit above).
-- **No voice speed control via script text.** Speaking rate is controlled by the speed slider in the portal or the `speed` parameter in the API, not by script content.
-- **No pitch control.** v2 does not support pitch-shifting tags.
+### Emotion and tone
 
-This is a deliberate trade-off: v2 gives us **deterministic pause timing** via `<break>` tags at the cost of explicit emotion tags. For voiceover-to-video sync, predictable timing is more valuable than fine-grained emotion control.
+Each provider has one extra control. Use it lightly:
 
-### Step 3: Add pauses
+- **Gemini:** one short style string for the whole take, sent in `speech_metadata.style` (never in the text). See [providers/gemini.md](providers/gemini.md#style-string). Record it in the header block.
+- **ElevenLabs v3:** inline audio tags in square brackets, e.g. `[excited]`, `[warmly]`, `[whispers]`, at the start of a sentence where the tone must change. Default is none; at most a few per script. See [providers/elevenlabs.md](providers/elevenlabs.md#audio-tags-v3).
 
-Where the PLAN.md script has `[pause for animation]` markers, insert pause mechanisms appropriate to the desired duration:
+For an emotional arc (e.g., calm, then excited at the call to action), change the writing: longer sentences early, short sentences with exclamation marks at the end. For v3 you can also add one tag where the tone changes.
 
-#### Pause reference (v2)
+### Step 3: Add pause markers
 
-| Pause type | Syntax | Duration | Use for |
-|---|---|---|---|
-| Natural micro-pause | `...` (ellipsis) | ~0.3-0.5s | Trailing off, rhetorical beat |
-| Breath pause | `--` (em-dash) | ~0.2-0.4s | Parenthetical, interruption |
-| Sentence break | Period + new sentence | ~0.5-0.8s | Normal sentence transition |
-| Medium pause | `<break time="1.0s" />` | Exact (1.0s) | Animation beat between ideas |
-| Long pause | `<break time="2.5s" />` | Exact (2.5s) | Major visual transition |
-| Very long pause | `<break time="4.0s" />` | Exact (up to ~5s) | Extended animation sequence |
+Put a `[[pause Xs]]` marker on its own line, between paragraphs:
 
-**The `<break>` SSML tag is the primary mechanism for precise pauses.** It is supported by v2 and produces exact, deterministic timing. Use it for any pause of 1 second or more where the video needs time for a visual transition.
+- **At every segment boundary.** Default 1.0-1.5s. The transition animation plays in this pause.
+- **At every `[pause for animation]`** in the PLAN.md script. Size it to the animation (check the segment code).
+- **Optionally before the first line**, for a lead-in silence while the first segment animates in.
 
-Syntax: `<break time="X.Xs" />` where `X.X` is seconds (e.g., `"1.5s"`, `"0.8s"`, `"3.0s"`).
+| Pause | Length | Use for |
+|---|---|---|
+| Short beat | 0.5-0.8s | Between two ideas in one segment |
+| Segment boundary | 1.0-1.5s | Default transition |
+| Long | 2.0-3.0s | Major visual transition, a demo that plays without narration |
+| Extended | 3.0s+ | Long animation sequence (any length works) |
 
-For pauses under 0.5 seconds, ellipses and em-dashes often sound more natural than a `<break>` tag. For pauses over 0.5 seconds, use `<break>`.
+Rules:
 
-**Important: `<break>` cannot be the first element in the script.** ElevenLabs does not support a `<break>` tag at the very start of the text -- the TTS engine requires spoken text before the first break. If the video needs an initial silent pause before narration begins, start with a spoken word and place the first `<break>` after it, or handle the initial silence through video timing (e.g., a leading silent segment).
+- Syntax: `[[pause 1.5s]]` (seconds; the `s` is optional).
+- Put markers at sentence ends only. Mid-sentence, the model may not stop fully, and the retime step will refuse the take.
+- Do not add markers between every sentence. Pauses the video does not need should come from the model.
 
-### Step 4: Handle segment boundaries
+### Step 4: Pronunciation and special terms
 
-The provider script is one continuous block of text (not divided by segment). Segment boundaries from PLAN.md become natural pause points in the provider script. Insert a `<break>` tag at each segment transition to give the audio natural breathing room:
-
-```
-...set us apart.
-
-<break time="1.0s" />
-
-First up: real-time collaboration.
-```
-
-The duration of segment-boundary breaks depends on the video's pacing. A good default is 1.0-1.5 seconds.
-
-### Step 5: Pronunciation and special terms
-
-v2 handles pronunciation through these mechanisms:
-
-- **Spell out letters:** "A P I" (with spaces) for letter-by-letter pronunciation.
-- **Phonetic hint:** For unusual names, spell them phonetically nearby: "Istio (is-tee-oh)" or just "is-tee-oh" if the correct name is not needed in audio.
+- **Spell out letters:** "A P I" (with spaces) for letter-by-letter pronunciation, if the model says it as a word.
+- **Phonetic hint:** For unusual names, spell them the way they sound: "Istio" -> "is-tee-oh". For compound product names, a hyphen often helps ("Video-wright").
 - **URLs:** Write as speech: "acme dot com" instead of "acme.com".
-- **Numbers:** "one hundred twenty three" instead of "123" if the TTS reads it oddly. Test first -- ElevenLabs v2 generally handles numbers well.
+- **Numbers:** Write numbers as words ("one hundred twenty three") only if the model reads them oddly.
 
-v2 does NOT support IPA phoneme tags or SSML `<phoneme>` elements. Use inline phonetic spelling as the workaround.
+Record each pronunciation change in the header block, so the canonical spelling stays clear. The transcript check accepts spellings that sound like what the STT heard ("A P I" vs. "API"), so these changes do not cause check failures.
 
 ## Output format
-
-Write the provider script as a single markdown file:
 
 ```markdown
 # Provider Script
 
-> Provider: ElevenLabs v2 (eleven_multilingual_v2)
-> Voice: [voice name from selection, e.g. "Asher"]
-> Style notes: Conversational, warm
+> Provider: Gemini 3.8 Flash TTS (google/gemini-3.8-flash-tts)
+> Voice: Charon
+> Style: confident, warm tech explainer; conversational, natural pace
+> Pronunciation: "S V G" spelled with spaces.
 
 ---
 
+[[pause 0.8s]]
+
 Welcome to Acme Product. Today we'll walk through the three features that set us apart.
 
-<break time="1.2s" />
+[[pause 1.2s]]
 
-First up: real-time collaboration! Your team can edit simultaneously, with changes syncing instantly across devices.
+First up: real-time collaboration! Your team can edit at the same time, with changes syncing instantly.
 
-<break time="2.0s" />
+[[pause 2.0s]]
 
 Next, the analytics dashboard. Track engagement, conversion, and retention -- in one view.
 
-<break time="2.0s" />
+[[pause 2.0s]]
 
-Finally, integrations. Connect with the tools you already use... Slack, GitHub, Jira, and more.
+Finally, integrations. Connect the tools you already use... Slack, GitHub, Jira, and more.
 
-<break time="1.0s" />
+[[pause 1.0s]]
 
 Ready to get started? Visit acme dot com for a free trial. Thanks for watching.
 ```
 
 ### Key conventions in the output
 
-- The header block (blockquote) is metadata for the user, not pasted into the portal or sent to the API.
-- Everything below the `---` is the text to paste or send.
-- `<break>` tags are inline where exact pauses should occur.
-- Punctuation-driven pauses (ellipses, em-dashes) are inline for natural micro-pauses.
-- URLs are written phonetically ("acme dot com") to avoid TTS mispronunciation.
-- **No v3 emotion tags** (`[excited]`, `[calm]`, `[whispering]`, etc.) -- these are silently ignored by v2.
+- The header block (blockquote) is metadata for the user and the agent. It is not sent to the provider.
+- Everything below the `---` is the script.
+- `[[pause]]` markers are on their own lines, between paragraphs.
+- No provider pause tags. Provider tone controls only as described in [Emotion and tone](#emotion-and-tone).
 
 ## Presenting to the user
 
 After generating the provider script:
 
-1. Show the full script with a brief explanation of the annotations used.
-2. Tell the user:
-   > Copy everything below the horizontal rule into the ElevenLabs portal, or the agent will send it via the API. See the provider reference for step-by-step instructions.
-3. Write the file to `audio/originals/voiceovers/<slug>/provider_script.md`.
-4. Proceed to the provider walkthrough: [providers/elevenlabs.md](providers/elevenlabs.md).
+1. Show the full script with a brief explanation of the markers and any tone controls.
+2. Write the file to `audio/originals/voiceovers/<slug>/provider_script.md`.
+3. Proceed to audio generation with the chosen provider: [providers/gemini.md](providers/gemini.md) or [providers/elevenlabs.md](providers/elevenlabs.md).

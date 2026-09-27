@@ -26,8 +26,8 @@ Based on answers, load only the relevant sub-references below.
 
 If the user wants a voice-over, load [audio/voiceover.md](audio/voiceover.md). This covers:
 
-- AI-generated (ElevenLabs) and manual (user-provided audio) flows
-- Script writing, provider script transformation
+- AI-generated (Gemini via OpenRouter, or ElevenLabs) and manual (user-provided audio) flows
+- Script writing, provider script transformation, retiming pauses
 - Voice selection and style intake
 - Sync timing computation
 

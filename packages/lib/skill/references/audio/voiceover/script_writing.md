@@ -33,7 +33,7 @@ Ready to get started? Visit acme.com for a free trial. Thanks for watching.
 
 - One subsection per segment, using the segment id as the heading.
 - Segment ids must match the ids in the timeline.
-- Use `[pause for animation]` markers where the script expects a visual beat to play before the narration continues. These are hints for the agent when computing multi-advance timing.
+- Use `[pause for animation]` markers where the script expects a visual beat to play before the narration continues. These are hints for the agent when computing multi-advance timing. In the provider script, each becomes a `[[pause Xs]]` marker with an exact length (see [provider_script.md](provider_script.md#step-3-add-pause-markers)).
 - Segments with no voiceover content are omitted from the script section.
 
 ## Writing a new script
