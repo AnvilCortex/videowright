@@ -71,7 +71,7 @@ Pick the STT provider from the keys in `.env` (check key names only -- do not pr
 - **`ELEVENLABS_API_KEY` only:** use Scribe v2 (see [providers/elevenlabs.md](providers/elevenlabs.md#speech-to-text-api)), output to `raw_stt.json`.
 - **Portal users:** the user exports STT JSON from the ElevenLabs portal as `raw_stt.json` (see [providers/elevenlabs.md](providers/elevenlabs.md#step-2----word-timings-stt)).
 
-`GEMINI_API_KEY` alone is not enough here: the Gemini API has no word-timestamp STT. A take generated with a Gemini key still needs one of the options above.
+`GEMINI_API_KEY` alone is not enough here: this step does not use Gemini for STT. A take generated with a Gemini key still needs one of the options above.
 
 Add these STT calls to `generate.sh` after the TTS call, so one run makes a complete take.
 

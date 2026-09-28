@@ -8,12 +8,13 @@
 # Each KEY=VALUE line is exported unless KEY is already set in the environment, so a key exported
 # by the shell or a wrapper wins over .env. A value that is a 1Password secret reference
 # (op://vault/item/field) is resolved with the 1Password CLI (`op read`); the secret is never
-# printed. Works in bash and zsh. A missing .env is not an error: keys may come from the shell.
+# printed. Works in sh, bash and zsh. A missing .env is not an error: keys may come from the shell.
 
 __vw_env_file="${VW_ENV_FILE:-.env}"
+__vw_cr="$(printf '\r')"
 if [ -f "$__vw_env_file" ]; then
   while IFS= read -r __vw_line || [ -n "$__vw_line" ]; do
-    __vw_line="${__vw_line%$'\r'}"
+    __vw_line="${__vw_line%"$__vw_cr"}"
     case "$__vw_line" in '' | '#'*) continue ;; esac
     __vw_line="${__vw_line#export }"
     __vw_key="${__vw_line%%=*}"
@@ -40,4 +41,4 @@ if [ -f "$__vw_env_file" ]; then
     export "$__vw_key=$__vw_value"
   done <"$__vw_env_file"
 fi
-unset __vw_env_file __vw_line __vw_key __vw_value
+unset __vw_env_file __vw_cr __vw_line __vw_key __vw_value

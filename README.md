@@ -89,7 +89,7 @@ With a Gemini API key, Videowright renders a finished video and has Gemini watch
 
 ## API keys
 
-Keys live in `.env`, as plain values or 1Password secret references (`ELEVENLABS_API_KEY=op://vault/item/field`). References are resolved with `op read` when a script runs, so keys never sit in the project. Never paste a key into chat.
+Keys live in `.env`, as plain values or 1Password secret references (`ELEVENLABS_API_KEY=op://vault/item/field`). References are resolved with `op read` when a script runs, so with a reference the key itself never sits in the project; a plain value does. Never paste a key into chat.
 
 ## Editing
 

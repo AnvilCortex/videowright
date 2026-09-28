@@ -36,7 +36,7 @@ The sync algorithm needs per-word timing data in `timing.json`. Pick the first o
 
 1. **`OPENROUTER_API_KEY` in `.env`:** run the OpenRouter STT call from [../retime.md](../retime.md#step-1-stt), with the user's audio file as input and `timing.json` as output.
 2. **`ELEVENLABS_API_KEY` in `.env`:** run the Scribe call from [elevenlabs.md](elevenlabs.md#speech-to-text-api), with `timing.json` as output.
-3. **No key:** the user runs ElevenLabs Speech-to-Text in the web portal (free tier available), as below. A `GEMINI_API_KEY` alone counts as no key here: the Gemini API has no word-timestamp STT.
+3. **No key:** the user runs ElevenLabs Speech-to-Text in the web portal (free tier available), as below. A `GEMINI_API_KEY` alone counts as no key here: Videowright does not use Gemini for STT.
 
 Do not run the retime step in the manual flow. The user's recording has its own pacing.
 

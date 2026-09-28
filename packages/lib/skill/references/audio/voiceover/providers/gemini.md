@@ -13,7 +13,7 @@ Facts that apply to both:
 - **Voice:** from the [Gemini voice catalog](../../voiceover.md#gemini-voices). Default: **Charon**.
 - **Cost:** about $0.01-0.02 per minute of audio. STT adds less than $0.001 per minute on OpenRouter. Current prices: https://ai.google.dev/pricing and https://openrouter.ai/google/gemini-3.8-flash-tts
 - **No word timestamps.** Gemini returns audio only. The retime step gets word timings from STT.
-- **STT needs a second provider with a Gemini key.** The Gemini API has no word-timestamp STT. With only `GEMINI_API_KEY`, the retime step needs `OPENROUTER_API_KEY`, `ELEVENLABS_API_KEY` (Scribe), or the ElevenLabs portal (see [retime.md](../retime.md#step-1-stt)). Tell the user before generating if none of these is available.
+- **STT needs a second provider with a Gemini key.** Videowright's retime step does not use Gemini for STT. With only `GEMINI_API_KEY`, the retime step needs `OPENROUTER_API_KEY`, `ELEVENLABS_API_KEY` (Scribe), or the ElevenLabs portal (see [retime.md](../retime.md#step-1-stt)). Tell the user before generating if none of these is available.
 
 ## Step 1: Get the API key
 

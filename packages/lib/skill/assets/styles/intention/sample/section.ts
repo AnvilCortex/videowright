@@ -67,12 +67,12 @@ export default defineSegment({
         <div data-ref="quiet" style="
           position: absolute; left: 0; right: 0; top: 480px; text-align: center;
           font-family: var(--font-display); font-weight: 300; font-size: var(--type-statement);
-          opacity: 0;
+          color: var(--color-night-fg); opacity: 0;
         ">${caption("Then everything went quiet.")}</div>
         <div data-ref="home" style="
           position: absolute; left: 0; right: 0; top: 480px; text-align: center;
           font-family: var(--font-display); font-weight: 300; font-size: var(--type-statement);
-          opacity: 0;
+          color: var(--color-night-fg); opacity: 0;
         ">${caption("So we gave everything one home.", [5])}</div>
       </div>
     `;
