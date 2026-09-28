@@ -91,7 +91,7 @@ The import path is relative to the video's `timeline.ts` location. Adjust the `.
 
 Vite (the dev server) and any bundler resolves the CSS import natively. The CSS is injected into the page; `:root` custom properties cascade through the player's DOM.
 
-**Fonts come from `tokens.css`.** `STYLE.md`'s `font_sources` is metadata; the fonts load only because `tokens.css` starts with an `@import` of the same URLs. `render` waits for every declared face to load before capturing the first frame, so no frame is captured in a fallback font. If type looks wrong, check that import first.
+**Fonts come from `tokens.css`.** `STYLE.md`'s `font_sources` is metadata; the fonts load only because `tokens.css` starts with an `@import` of the same URLs. `render` waits for every declared face to load before capturing the first frame, so no frame is captured in a fallback font; a face that fails to load is reported as a warning. If type looks wrong, check that import first.
 
 **Keep the import in sync.** The top-of-file import must always match `meta.style ?? config.defaultStyle`. When you change the style for a video, update both the import path and `meta.style` (if set).
 
