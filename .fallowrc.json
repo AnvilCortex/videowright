@@ -1,0 +1,22 @@
+{
+	"$schema": "https://raw.githubusercontent.com/fallow-rs/fallow/main/schema.json",
+	"entry": ["packages/lib/skill/scripts/*.mjs"],
+	"ignorePatterns": [
+		"dist/**",
+		"build/**",
+		"coverage/**",
+		"**/*.gen.ts",
+		"**/routeTree.gen.ts",
+		"packages/lib/skill/assets/**",
+		"projects/**"
+	],
+	"health": {
+		"thresholdOverrides": [
+			{
+				"files": ["packages/lib/skill/scripts/**"],
+				"maxCrap": 100,
+				"reason": "Agent-run CLI scripts, verified by running them against the live APIs rather than by unit tests; CRAP here is estimated at zero coverage."
+			}
+		]
+	}
+}

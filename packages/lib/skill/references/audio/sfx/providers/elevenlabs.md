@@ -6,7 +6,7 @@ The user chose ElevenLabs to generate a sound effect. This reference covers the 
 
 ## Prerequisites
 
-- `ELEVENLABS_API_KEY` set in `.env` at the project root. The key must have **Sound Effects** permission enabled.
+- `ELEVENLABS_API_KEY` set in `.env` at the project root, as a plain value or a 1Password reference (`op://vault/item/field`). The key must have **Sound Effects** permission enabled.
 - If the user does not have an API key, guide them through setup: see [../../voiceover/providers/elevenlabs.md](../../voiceover/providers/elevenlabs.md) (Step 2: Get the API key). The same key works for TTS, STT, SFX, and Music.
 
 ## Cost notice
@@ -37,7 +37,7 @@ The user chose ElevenLabs to generate a sound effect. This reference covers the 
 
 ## `generate.sh` template
 
-Write this script to `audio/originals/sfx/<slug>/generate.sh` for reproducibility:
+Write this script to `videos/<video>/audio/originals/sfx/<slug>/generate.sh` for reproducibility:
 
 ```bash
 #!/bin/bash
@@ -48,10 +48,8 @@ Write this script to `audio/originals/sfx/<slug>/generate.sh` for reproducibilit
 
 set -euo pipefail
 
-# Load API key from .env
-if [ -f .env ]; then
-  export $(grep -v '^#' .env | xargs)
-fi
+# Load the API key from .env (resolves op:// references). Run from the project root.
+. node_modules/videowright/skill/scripts/load_env.sh
 
 if [ -z "${ELEVENLABS_API_KEY:-}" ]; then
   echo "Error: ELEVENLABS_API_KEY not set. Add it to .env" >&2
@@ -59,7 +57,7 @@ if [ -z "${ELEVENLABS_API_KEY:-}" ]; then
 fi
 
 SLUG="<slug>"
-OUTPUT_DIR="audio/originals/sfx/${SLUG}"
+OUTPUT_DIR="videos/<video>/audio/originals/sfx/${SLUG}"
 mkdir -p "${OUTPUT_DIR}"
 
 curl -X POST "https://api.elevenlabs.io/v1/sound-generation" \
@@ -77,7 +75,7 @@ echo "SFX saved to ${OUTPUT_DIR}/audio.mp3"
 
 Make the script executable: `chmod +x generate.sh`.
 
-**Important:** Run `generate.sh` from the **video folder** (the directory containing `timeline.ts`) so that relative paths resolve correctly.
+**Important:** Run `generate.sh` from the **project root** (the directory containing `.env` and `node_modules/`) so that relative paths resolve correctly.
 
 ## Prompt-writing tips
 
@@ -114,25 +112,27 @@ After the curl command succeeds:
 
 1. **Verify the file exists and is non-empty:**
    ```bash
-   ls -la audio/originals/sfx/<slug>/audio.mp3
+   ls -la videos/<video>/audio/originals/sfx/<slug>/audio.mp3
    ```
 
 2. **Measure duration via ffprobe:**
    ```bash
    ffprobe -v error -show_entries format=duration \
      -of default=noprint_wrappers=1:nokey=1 \
-     audio/originals/sfx/<slug>/audio.mp3
+     videos/<video>/audio/originals/sfx/<slug>/audio.mp3
    ```
 
-3. **Write `sfx.ts`** with the metadata (see [../sfx.md](../sfx.md) for the shape). Set `source: "elevenlabs"`.
+3. **Check the attack.** A sound that starts at full level clicks in the mix. If the first few milliseconds are not near silence, give the cue a short fade-in (5-20 ms) in the audio plan (see [Fade in / fade out](../../ffmpeg_cookbook.md#fade-in--fade-out)). Every cue needs an attack; clicks come from hard starts.
 
-4. **Trigger the approval UX** (see [../sfx.md](../sfx.md) -- Approval UX section).
+4. **Write `sfx.ts`** with the metadata (see [../sfx.md](../sfx.md) for the shape). Set `source: "elevenlabs"`.
+
+5. **Trigger the approval UX** (see [../sfx.md](../sfx.md) -- Approval UX section).
 
 ## Iteration on discard
 
 If the user discards and requests changes:
 
-1. Delete the folder: `rm -rf audio/originals/sfx/<slug>/`
+1. Delete the folder: `rm -rf videos/<video>/audio/originals/sfx/<slug>/`
 2. Ask what should change about the sound.
 3. Adjust the prompt based on feedback. Common adjustments:
    - "Too harsh" -- add "soft", "gentle", remove "punchy"
@@ -145,8 +145,8 @@ If the user discards and requests changes:
 
 | Issue | Resolution |
 |---|---|
-| 401 Unauthorized | Check `ELEVENLABS_API_KEY` in `.env`. Ensure the key has Sound Effects permission. |
+| 401 Unauthorized | Check `ELEVENLABS_API_KEY` in `.env` (or that its `op://` reference resolves). Ensure the key has Sound Effects permission. |
 | 422 Unprocessable Entity | Prompt may be too short or too long. Keep prompts 10-200 characters. |
 | Empty or 0-byte response | API may have failed silently. Retry. If persistent, try a different prompt. |
 | Generated sound does not match prompt | Increase `prompt_influence` (try 0.5-0.7). Rephrase the prompt to be more specific. |
-| Rate limited (429) | Wait and retry. Check quota at https://elevenlabs.io/app/subscription. |
+| Rate limited (429) | Wait and retry, and send fewer requests at once (plans cap concurrency). Check quota at https://elevenlabs.io/app/subscription. |

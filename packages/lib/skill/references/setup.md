@@ -57,6 +57,8 @@ Only create directories that do not already exist. Do not create any files insid
 
 **Ensure `.env` is in `.gitignore`.** Check if a `.gitignore` file exists at the repo root. If it does not exist, create one. In either case, verify that `.env` is listed as an ignored pattern. If it is not present, add `.env` to the file. This prevents API keys and other secrets from being committed to the repository.
 
+API keys in `.env` can be plain values or 1Password secret references (`ELEVENLABS_API_KEY=op://vault/item/field`). Generation scripts load `.env` with `. node_modules/videowright/skill/scripts/load_env.sh`, which resolves references with `op read` at run time, so the key itself never sits in the file. A key already exported in the shell wins over `.env`.
+
 ### Step 3 -- Pick first style
 
 The first style is required. Without it, there are no design tokens and any video will lack visual identity. There is no "skip and add later" path.
@@ -88,7 +90,9 @@ export default defineConfig({
 });
 ```
 
-If the file already exists (partial setup), only update `defaultStyle`.
+If the style's kit named transitions (Step 3), add them as `transitions` in the same object.
+
+If the file already exists (partial setup), only update `defaultStyle`, and add any kit transitions it lacks to `transitions`, keeping the entries already there.
 
 ### Step 5 -- Hand off to first video
 

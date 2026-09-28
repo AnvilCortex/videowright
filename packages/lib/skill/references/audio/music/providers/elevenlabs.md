@@ -2,11 +2,11 @@
 
 ## When this is loaded
 
-The user chose ElevenLabs to generate background music. This reference covers the Music Generation API endpoint, prompt-writing tips, and the `generate.sh` template.
+The user chose ElevenLabs to generate background music. This reference covers the Music API endpoint, prompt-writing tips, composition plans that follow the narration, and the `generate.sh` template.
 
 ## Prerequisites
 
-- `ELEVENLABS_API_KEY` set in `.env` at the project root. The key must have **Music Generation** permission enabled.
+- `ELEVENLABS_API_KEY` set in `.env` at the project root, as a plain value or a 1Password reference (`op://vault/item/field`). The key must have **Music Generation** permission enabled.
 - If the user does not have an API key, guide them through setup: see [../../voiceover/providers/elevenlabs.md](../../voiceover/providers/elevenlabs.md) (Step 2: Get the API key). The same key works for TTS, STT, SFX, and Music.
 
 ## Cost notice
@@ -15,43 +15,64 @@ The user chose ElevenLabs to generate background music. This reference covers th
 
 ## API endpoint
 
-**Endpoint:** `POST https://api.elevenlabs.io/v1/music-generation`
+**Endpoint:** `POST https://api.elevenlabs.io/v1/music?output_format=mp3_44100_192`
 
-**Request body:**
+The body takes **either** a plain prompt **or** a composition plan, never both.
+
+**Prompt** (quick, one mood for the whole track):
 
 ```json
 {
-  "text": "<prompt describing the desired music>",
-  "duration_seconds": 60,
-  "prompt_influence": 0.5
+  "model_id": "music_v1",
+  "prompt": "<prompt describing the desired music>",
+  "music_length_ms": 60000,
+  "force_instrumental": true
+}
+```
+
+**Composition plan** (sections that follow the narration; see [Composition plans](#composition-plans)):
+
+```json
+{
+  "model_id": "music_v1",
+  "seed": 3,
+  "composition_plan": {
+    "positive_global_styles": ["solo felt piano", "warm ambient pads", "62 bpm", "no drums", "instrumental"],
+    "negative_global_styles": ["vocals", "drums", "percussion", "EDM"],
+    "sections": [
+      { "section_name": "Opening", "positive_local_styles": ["sparse single piano notes", "very quiet"], "negative_local_styles": [], "duration_ms": 14500, "lines": [] },
+      { "section_name": "Reveal", "positive_local_styles": ["warm pad blooms", "resolves to a major chord"], "negative_local_styles": [], "duration_ms": 21000, "lines": [] }
+    ]
+  }
 }
 ```
 
 | Field | Required | Description |
 |---|---|---|
-| `text` | Yes | Natural-language description of the music. See prompt-writing tips below. |
-| `duration_seconds` | No | Target duration in seconds. If omitted, the API chooses (usually 30s). Recommended: specify to match your video length. |
-| `prompt_influence` | No | 0.0-1.0. Higher values follow the prompt more literally; lower values give more creative freedom. 0.5 is a good starting point for music. |
+| `model_id` | No | `music_v1` (default), `music_v2`, or `music_v2_5`. `music_v1` with a composition plan has been the most controllable for scoring a narrated video. v2 models take a different plan shape (`chunks`); see the ElevenLabs API reference. |
+| `prompt` | One of | Natural-language description of the music. See prompt-writing tips below. |
+| `music_length_ms` | No | Prompt mode only. 3,000-600,000 ms. If omitted, the model picks a length. Recommended: specify to match your video length. |
+| `force_instrumental` | No | Prompt mode only. `true` guarantees no vocals. |
+| `composition_plan` | One of | Global styles plus `sections`, each with `section_name`, `positive_local_styles`, `negative_local_styles`, `duration_ms` (3,000-120,000 ms) and `lines` (`[]` for instrumental). |
+| `seed` | No | Composition-plan mode only. The same seed tends to give a similar track; change it to get alternatives. |
 
 **Response:** The API returns raw audio bytes (mp3) directly in the response body.
 
+**Never name artists, bands, songs or brands** in a prompt or style list ("in the style of ..."). The API rejects them as copyright risks (HTTP 422 or 400). Describe the sound instead: instruments, tempo, texture, mood.
+
 ## `generate.sh` template
 
-Write this script to `audio/originals/music/<slug>/generate.sh` for reproducibility:
+Write this script to `videos/<video>/audio/originals/music/<slug>/generate.sh` for reproducibility, with the body as `request.json` beside it:
 
 ```bash
 #!/bin/bash
 # Generated Music: <name>
-# Prompt: <the exact prompt used>
-# Duration: <duration_seconds>s
-# Prompt influence: <prompt_influence>
+# Mode: <prompt | composition plan>, model music_v1, seed <seed>
 
 set -euo pipefail
 
-# Load API key from .env
-if [ -f .env ]; then
-  export $(grep -v '^#' .env | xargs)
-fi
+# Load the API key from .env (resolves op:// references). Run from the project root.
+. node_modules/videowright/skill/scripts/load_env.sh
 
 if [ -z "${ELEVENLABS_API_KEY:-}" ]; then
   echo "Error: ELEVENLABS_API_KEY not set. Add it to .env" >&2
@@ -59,25 +80,36 @@ if [ -z "${ELEVENLABS_API_KEY:-}" ]; then
 fi
 
 SLUG="<slug>"
-OUTPUT_DIR="audio/originals/music/${SLUG}"
+OUTPUT_DIR="videos/<video>/audio/originals/music/${SLUG}"
 mkdir -p "${OUTPUT_DIR}"
 
-curl -X POST "https://api.elevenlabs.io/v1/music-generation" \
+HTTP_CODE=$(curl -sS -w "%{http_code}" -o "${OUTPUT_DIR}/audio.mp3" \
+  -X POST "https://api.elevenlabs.io/v1/music?output_format=mp3_44100_192" \
   -H "xi-api-key: ${ELEVENLABS_API_KEY}" \
   -H "Content-Type: application/json" \
-  -d '{
-    "text": "<prompt>",
-    "duration_seconds": <duration>,
-    "prompt_influence": <influence>
-  }' \
-  --output "${OUTPUT_DIR}/audio.mp3"
+  --data @"${OUTPUT_DIR}/request.json")
 
+if [ "$HTTP_CODE" != "200" ]; then
+  echo "ERROR: ElevenLabs returned HTTP $HTTP_CODE" >&2; head -c 800 "${OUTPUT_DIR}/audio.mp3" >&2; echo >&2
+  rm -f "${OUTPUT_DIR}/audio.mp3"; exit 1
+fi
 echo "Music saved to ${OUTPUT_DIR}/audio.mp3"
 ```
 
 Make the script executable: `chmod +x generate.sh`.
 
-**Important:** Run `generate.sh` from the **video folder** (the directory containing `timeline.ts`) so that relative paths resolve correctly.
+**Important:** Run `generate.sh` from the **project root** (the directory containing `.env` and `node_modules/`) so that relative paths resolve correctly.
+
+## Composition plans
+
+For a narrated video, score to the narration rather than to a single mood:
+
+1. **Sections follow the script.** One section per story beat (opening, problem, reveal, resolution). Each section after the first starts about 0.3 s before the paragraph it scores, using the voiceover's `timing.json`; the last one runs to the end of the video. Durations are `duration_ms` per section.
+2. **Global styles hold the palette** (instruments, tempo, texture, "no drums", "instrumental"); local styles move the energy ("sparse single notes", "pad blooms", "arrangement strips back", "final chord rings out").
+3. **Generate several seeds** (3-6 candidates, one `<slug>_s<seed>` folder each), then compare them **against the narration**: mix each under the voiceover (see [../../ffmpeg_cookbook.md](../../ffmpeg_cookbook.md#vo--music-with-ducking)) and rank the previews blind with `gemini.mjs rank` (see [review.md](../../../review.md#rank-candidates)), or ask the user to listen. Keep the winner; delete the rest before use.
+4. **Offset if needed.** If the first notes should land after the opening, place the cue a second or two late in the audio plan rather than regenerating.
+
+Plans may cap concurrent requests (three at once on some tiers). Generate seeds one after another, or at most a few at a time.
 
 ## Prompt-writing tips
 
@@ -122,14 +154,14 @@ After the curl command succeeds:
 
 1. **Verify the file exists and is non-empty:**
    ```bash
-   ls -la audio/originals/music/<slug>/audio.mp3
+   ls -la videos/<video>/audio/originals/music/<slug>/audio.mp3
    ```
 
 2. **Measure duration via ffprobe:**
    ```bash
    ffprobe -v error -show_entries format=duration \
      -of default=noprint_wrappers=1:nokey=1 \
-     audio/originals/music/<slug>/audio.mp3
+     videos/<video>/audio/originals/music/<slug>/audio.mp3
    ```
 
 3. **Ask the user to listen and describe the track.** Before writing metadata, ask the user to play the track and report:
@@ -146,13 +178,13 @@ After the curl command succeeds:
 
 If the user discards and requests changes:
 
-1. Delete the folder: `rm -rf audio/originals/music/<slug>/`
+1. Delete the folder: `rm -rf videos/<video>/audio/originals/music/<slug>/`
 2. Ask what should change about the music.
 3. Adjust the prompt based on feedback. Common adjustments:
    - "Too energetic" -- add "calm", "minimal", "ambient", reduce tempo
    - "Too boring" -- add "building", "dynamic", increase tempo, add percussion
    - "Wrong mood" -- change mood descriptors entirely
-   - "Too short" -- increase `duration_seconds`
+   - "Too short" -- increase `music_length_ms` (or the section `duration_ms` values)
    - "Instruments are wrong" -- specify desired instruments, explicitly exclude unwanted ones ("no drums", "no vocals")
    - "Needs a stronger ending" -- describe the outro in the prompt ("resolves to a clear final chord")
 4. Re-run with the updated prompt. Write a new `generate.sh` reflecting the new parameters.
@@ -161,10 +193,11 @@ If the user discards and requests changes:
 
 | Issue | Resolution |
 |---|---|
-| 401 Unauthorized | Check `ELEVENLABS_API_KEY` in `.env`. Ensure the key has Music Generation permission. |
+| 401 Unauthorized | Check `ELEVENLABS_API_KEY` in `.env` (or that its `op://` reference resolves). Ensure the key has Music Generation permission. |
 | 422 Unprocessable Entity | Prompt may be problematic. Keep prompts 20-500 characters. Avoid special characters. |
 | Empty or 0-byte response | API may have failed silently. Retry. If persistent, try a shorter duration or different prompt. |
-| Generated music does not match prompt | Increase `prompt_influence` (try 0.6-0.8). Be more specific about instruments and mood. |
+| Generated music does not match prompt | Be more specific about instruments, tempo and mood; move the arc into a composition plan with one section per beat; try other seeds. |
+| 422 or 400 naming an artist, band or brand | Styles and prompts must not name artists, bands, songs or brands. Describe the sound instead. |
 | Music has vocals/singing | Add "instrumental only, no vocals, no singing" to the prompt. |
-| Rate limited (429) | Wait and retry. Check quota at https://elevenlabs.io/app/subscription. |
+| Rate limited (429) | Wait and retry, and send fewer requests at once (plans cap concurrency). Check quota at https://elevenlabs.io/app/subscription. |
 | Track is shorter than requested | The API may cap duration. Try requesting in smaller segments or accept the shorter track. |

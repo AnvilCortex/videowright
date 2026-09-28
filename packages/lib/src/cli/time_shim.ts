@@ -356,12 +356,6 @@ export const TIME_SHIM_SOURCE = `
     // Final advance to target
     virtualMs = target;
 
-    // Fire all queued RAF callbacks
-    var queued = rafCallbacks.splice(0);
-    for (var i = 0; i < queued.length; i++) {
-      try { queued[i].cb(virtualMs); } catch(e) { console.error('[VW shim] RAF error:', e); }
-    }
-
     // Update WAAPI animations
     for (var j = trackedAnimations.length - 1; j >= 0; j--) {
       var entry = trackedAnimations[j];
@@ -384,6 +378,13 @@ export const TIME_SHIM_SOURCE = `
         if (entry.resolve) entry.resolve(anim);
         trackedAnimations.splice(j, 1);
       }
+    }
+
+    // Fire queued RAF callbacks after the animations have moved, as a browser does, so a callback
+    // that measures the page (a line following a moving shape) sees this frame, not the last one.
+    var queued = rafCallbacks.splice(0);
+    for (var i = 0; i < queued.length; i++) {
+      try { queued[i].cb(virtualMs); } catch(e) { console.error('[VW shim] RAF error:', e); }
     }
   };
 })();

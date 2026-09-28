@@ -2,6 +2,11 @@
  * Two-color screen print. Fluorescent pink + ink blue on cream.
  * Visible grain, slight misregistration, paper warmth.
  */
+
+@import url("https://fonts.googleapis.com/css2?family=Archivo+Black&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap");
+
 :root {
 	--color-bg: #f2ebdc; /* warm uncoated cream */
 	--color-fg: #1a2a6a; /* riso ink blue */

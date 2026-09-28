@@ -61,6 +61,7 @@ Guide the user:
 > Instead:
 > 1. Create a `.env` file at your project root (if it doesn't already exist).
 > 2. Add this line: `ELEVENLABS_API_KEY=your-key-here`
+>    - If you use 1Password, store a secret reference instead: `ELEVENLABS_API_KEY=op://vault/item/field`. It is resolved with `op read` each time a script runs, so the key never sits in the file.
 > 3. Make sure `.env` is in your `.gitignore` (add it if not).
 
 ### Step 3: Write `generate.sh`
@@ -71,7 +72,7 @@ Write a script into the voiceover folder so the take can be regenerated. It send
 #!/usr/bin/env bash
 # ElevenLabs v3 TTS. Run from the project root.
 set -euo pipefail
-set -a; . ./.env; set +a
+. node_modules/videowright/skill/scripts/load_env.sh
 
 VO_DIR="videos/<video>/audio/originals/voiceovers/<slug>"
 VOICE_ID="tMvyQtpCVQ0DkixuYm6J"  # Asher
@@ -98,7 +99,9 @@ echo "Wrote $VO_DIR/raw.mp3 ($(ffprobe -v error -show_entries format=duration -o
 
 Request notes:
 
-- `stability` for v3: `0.0` = Creative (most expressive, less stable), `0.5` = Natural (default), `1.0` = Robust (steady, ignores most audio tags). `similarity_boost` and `style` do not apply to v3.
+- `stability` for v3: `0.0` = Creative (most expressive, less stable), `0.5` = Natural (default), `1.0` = Robust (steady, ignores most audio tags). `similarity_boost` and `style` do not apply to v3. For calm, unhurried narration, `0.5` held up across a whole film; the API also accepts `similarity_boost: 0.8` and `use_speaker_boost: true`, but stability is the setting that changes the read.
+- Output formats can depend on the plan. `mp3_44100_128` and `pcm_24000` work on every paid plan; ask for others only if the user's plan allows them.
+- Plans cap concurrent requests (three at once on some tiers). When generating several takes or paragraphs, queue the requests rather than firing them all at once; a 429 means wait and retry.
 - Run with network access to `api.elevenlabs.io`.
 
 Then continue to [retime.md](../retime.md). For STT, use OpenRouter if the user has `OPENROUTER_API_KEY`, else [ElevenLabs Scribe](#speech-to-text-api) with the same ElevenLabs key.
@@ -147,7 +150,7 @@ Then continue to [retime.md](../retime.md), starting at the transcript check.
 Scribe v2 returns word timestamps. It uses the same `ELEVENLABS_API_KEY` (the key needs the **Speech to Text** permission):
 
 ```bash
-set -a; . ./.env; set +a
+. node_modules/videowright/skill/scripts/load_env.sh
 VO_DIR="videos/<video>/audio/originals/voiceovers/<slug>"
 curl -sS -X POST https://api.elevenlabs.io/v1/speech-to-text \
   -H "xi-api-key: ${ELEVENLABS_API_KEY}" \
@@ -202,9 +205,10 @@ v3 accepts at most 5,000 characters per request. For longer scripts, split the p
 
 | Issue | Resolution |
 |---|---|
-| API returns 401 | Check that `ELEVENLABS_API_KEY` is set correctly in `.env` and the key is valid. |
+| API returns 401 | Check that `ELEVENLABS_API_KEY` is set correctly in `.env` (or that its `op://` reference resolves) and the key is valid. |
+| 401 `missing the permission user_read` | The key is scoped and cannot read the account (for example the subscription endpoint), while TTS and STT still work. Check quota in the web UI instead, or add the permission. |
 | API returns 401/403 on STT only | The key does not have the **Speech to Text** permission. Edit the key or create a new one. |
-| API returns 429 | Rate limited. Wait a moment and retry, or check your plan's quota. |
+| API returns 429 | Rate limited or over the plan's concurrent-request limit. Wait a moment and retry, send fewer requests at once, or check your plan's quota. |
 | API returns 400 about text length | The text is over 5,000 characters. See [Long scripts](#long-scripts). |
 | Delivery is flat or over-acted | Change `stability` (lower = more expressive, higher = steadier), or try another voice. |
 | Transcript check fails | Regenerate (takes vary). If it fails 3 times, raise `stability` to `1.0`, remove audio tags, and tell the user. |

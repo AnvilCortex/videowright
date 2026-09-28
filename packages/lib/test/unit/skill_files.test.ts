@@ -27,8 +27,10 @@ describe("skill file structure", () => {
 			"create_or_edit_video.md",
 			"dev_server.md",
 			"export.md",
+			"images.md",
 			"new_video.md",
 			"project_structure.md",
+			"review.md",
 			"setup.md",
 			"setup_new_style.md",
 			"styles.md",
@@ -314,6 +316,7 @@ describe("skill file structure", () => {
 		"motion-engineering",
 		"iso-diagram",
 		"risograph",
+		"intention",
 	] as const;
 
 	const SAMPLE_SCENES = [

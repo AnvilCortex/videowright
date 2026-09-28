@@ -4,6 +4,8 @@
 
 You are authoring or reviewing an audio plan for a product/demo video. This reference encodes opinions about what makes audio sound professional in this context. Apply these principles when writing volume curves, choosing levels, and reviewing mixes.
 
+**A style can set its own mix.** If the video's `styles/<slug>/STYLE.md` has a sound or mix section (loudness target, music level against the narration, duck depth, SFX level), its numbers win over the defaults here. For example, the Intention pack masters to -16 LUFS / -1.5 dBTP, keeps the music 5.5 LU under the narration in the gaps and ducks it a further 9 dB under speech, for a quieter, more intimate film.
+
 ## Music level under speech
 
 Music should recede when voiceover is speaking. The ear should never strain to separate the two.

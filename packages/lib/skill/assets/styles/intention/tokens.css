@@ -1,0 +1,57 @@
+/* Intention — design tokens
+ * Calm, typographic explainer film. Ink on paper, night for reveals.
+ * Colour carries meaning: the accent is the answer, the alert is what the product flags or what fails.
+ * Add the product's semantic or brand colours per project; nothing is coloured for decoration.
+ */
+
+@import url("https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@300;400;600&family=Source+Code+Pro:wght@400;500&display=swap");
+
+:root {
+	/* Core palette */
+	--color-bg: #e9e7e4; /* paper */
+	--color-fg: #1d1d1f; /* ink */
+	--color-accent: #cc921f; /* gold: the value in the story (the answer, the fix, what is gained) */
+
+	/* Extended palette */
+	--color-accent-soft: #deb04a; /* gold on night, glows */
+	--color-alert: #ee312e; /* red: flags, alerts, failure and impact */
+	--color-muted: rgba(29, 29, 31, 0.45); /* secondary ink: structure that recedes */
+	--color-faint: rgba(29, 29, 31, 0.14); /* hairlines, texture, not-yet-spoken caption words */
+	--color-paper-edge: #d2cfcb; /* vignette edge */
+	--color-night: #141416; /* the "before", reveals */
+	--color-night-edge: #060607;
+	--color-night-fg: #f2f1ef; /* ink on night */
+
+	/* Typography */
+	--font-display: "Source Sans 3", "Helvetica Neue", system-ui, sans-serif;
+	--font-body: "Source Sans 3", "Helvetica Neue", system-ui, sans-serif;
+	--font-mono: "Source Code Pro", ui-monospace, monospace;
+
+	/* Type scale (px on the 1920×1080 canvas). Reviews flag anything smaller than these as unreadable on a laptop. */
+	--type-title: 120px; /* one or two words: the film's reveal, weight 300 */
+	--type-statement: 72px; /* a line of the argument set as type, weight 300 */
+	--type-heading: 56px; /* end-card title, section statements, weight 400 */
+	--type-caption: 40px; /* narration captions, weight 400 */
+	--type-label: 30px; /* node and item names, weight 400 */
+	--type-header: 24px; /* tracked caps: column heads, eyebrows, weight 600 */
+	--tracking-header: 0.2em;
+
+	/* Line weights */
+	--line: 2px; /* connectors, rings, outlines */
+	--line-hair: 1px; /* texture, grids */
+	--dot: 14px; /* one "thing" */
+
+	/* Motion */
+	--ease-out: cubic-bezier(0.16, 1, 0.3, 1); /* arrivals: fast in, long settle */
+	--ease-in-out: cubic-bezier(0.65, 0, 0.35, 1); /* purposeful moves */
+	--ease-drift: cubic-bezier(0.37, 0, 0.63, 1); /* slow camera drifts */
+	--duration-fast: 320ms;
+	--duration-normal: 900ms;
+	--duration-slow: 1800ms;
+	--duration-drift: 6s;
+	--stagger: 40ms;
+
+	/* Safe area for 1920×1080 */
+	--safe-x: 160px;
+	--safe-y: 110px;
+}

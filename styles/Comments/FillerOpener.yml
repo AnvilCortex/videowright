@@ -1,0 +1,5 @@
+extends: existence
+message: "Start with the code's responsibility instead of filler: '%s'."
+level: warning
+tokens:
+  - "(?:^|[.!?]\\s+)(?:This function|This file|Helper to|Simple wrapper)\\b"

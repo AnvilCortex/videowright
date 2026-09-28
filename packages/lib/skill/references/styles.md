@@ -47,7 +47,7 @@ The `sample/` folder inside a style contains one TypeScript file per scene type.
 | File | Purpose |
 |---|---|
 | `STYLE.md` | Frontmatter (`title`, `slug`, `picker_description`, `font_sources`) + body (aesthetic rules, motion vocabulary, don'ts). The agent reads this when authoring segments in this style. |
-| `tokens.css` | CSS custom properties on `:root`. The only required token format. Imported by timeline.ts. |
+| `tokens.css` | CSS custom properties on `:root`, preceded by an `@import` of each `font_sources` stylesheet. The only required token format. Imported by timeline.ts. |
 
 There is no `styles/default/`. Every style has a real name. Multiple styles can coexist in one repo.
 
@@ -90,6 +90,8 @@ export default timeline;
 The import path is relative to the video's `timeline.ts` location. Adjust the `../../` prefix to match the actual directory depth.
 
 Vite (the dev server) and any bundler resolves the CSS import natively. The CSS is injected into the page; `:root` custom properties cascade through the player's DOM.
+
+**Fonts come from `tokens.css`.** `STYLE.md`'s `font_sources` is metadata; the fonts load only because `tokens.css` starts with an `@import` of the same URLs. `render` waits for every declared face to load before capturing the first frame, so no frame is captured in a fallback font; a face that fails to load is reported as a warning. If type looks wrong, check that import first.
 
 **Keep the import in sync.** The top-of-file import must always match `meta.style ?? config.defaultStyle`. When you change the style for a video, update both the import path and `meta.style` (if set).
 

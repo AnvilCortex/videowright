@@ -32,7 +32,7 @@ import { findConfig, resolveSlugOrPath } from "./discover.js";
 import { discoverAllVideos } from "./discover_project.js";
 import { UserError } from "./errors.js";
 import { buildFfmpegArgs, findFfmpeg, spawnFfmpeg, writeWithBackpressure } from "./ffmpeg.js";
-import { ensurePlaywright } from "./playwright_check.js";
+import { type PlaywrightPage, ensurePlaywright } from "./playwright_check.js";
 import { promptVideoSelection } from "./prompt.js";
 import { TIME_SHIM_SOURCE } from "./time_shim.js";
 import { loadModule } from "./ts_loader.js";
@@ -85,6 +85,20 @@ export interface RenderResult {
 	outputPath: string;
 	frames: number;
 	duration: number;
+}
+
+/**
+ * Load every declared web font while real timers still run. A face first used mid-video would
+ * otherwise arrive after its frames were captured in a fallback font. A face that fails to load is
+ * reported, since its text will render in a fallback.
+ */
+async function loadFonts(page: PlaywrightPage): Promise<void> {
+	const failed = await page.evaluate<string[]>(
+		"Promise.all([...document.fonts].map((f) => f.load().then(() => null, () => `${f.family} ${f.weight} ${f.style}`))).then((failed) => document.fonts.ready.then(() => [...new Set(failed.filter(Boolean))]))",
+	);
+	for (const face of failed) {
+		console.warn(`Warning: font ${face} failed to load; its text renders in a fallback font`);
+	}
 }
 
 /**
@@ -424,6 +438,8 @@ export async function runRender(opts: RenderOptions): Promise<RenderResult> {
 			if (bootError) {
 				throw new UserError(`Render boot failed: ${bootError}`);
 			}
+
+			await loadFonts(page);
 
 			// Switch time shim from passthrough (real timers for boot) to
 			// driver-controlled mode (virtual timers for deterministic capture).

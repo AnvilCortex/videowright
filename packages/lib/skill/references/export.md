@@ -117,6 +117,18 @@ npx videowright render --output videos/demo/exports/final.mp4
 
 The output is an H.264-encoded MP4 with `yuv420p` pixel format (widely compatible).
 
+### Share encode
+
+The render is the master. For chat, email or a wiki page, make a smaller copy from it (about a quarter of the size, visually the same at normal viewing):
+
+```bash
+ffmpeg -loglevel error -y -i videos/demo/exports/final.mp4 \
+  -c:v libx264 -preset slow -crf 21 -pix_fmt yuv420p -c:a copy -movflags +faststart \
+  videos/demo/exports/final-share.mp4
+```
+
+`+faststart` moves the index to the front so the video starts playing before it has fully downloaded. Keep the master for further edits and re-encodes.
+
 ## Advances validation
 
 `render` validates every segment's `advances` array before starting capture:

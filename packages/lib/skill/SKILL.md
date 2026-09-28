@@ -1,6 +1,6 @@
 ---
 name: videowright
-description: Author HTML/CSS/JS animated explainer videos using Videowright. Trigger on requests to create a video, edit a segment, add or change a style, generate a VO script, run the dev server, or export.
+description: Author HTML/CSS/JS animated explainer videos using Videowright. Trigger on requests to create a video, edit a segment, add or change a style, generate a VO script, generate an image, review a render, run the dev server, or export.
 ---
 
 # Videowright
@@ -17,6 +17,8 @@ Videowright lets you author high-quality animated explainer videos in HTML/CSS/J
 - "Generate a script for \<video\>"
 - "Add a voiceover" / "Generate a voiceover" / "Record a voiceover"
 - "Add sound effects" / "Add music" / "Add audio"
+- "Generate an image" / "Make an illustration" / "Make a thumbnail"
+- "Review the video" / "Run a QC pass" / "Is it ready?" / "Which take is best?"
 - "Run the dev server" / "Preview the video"
 - "Export the video" / "Render the video"
 - "Write tests for \<video\>"
@@ -44,6 +46,8 @@ Read the user's request and route to the matching reference file:
 | Generate or regenerate a VO script | [references/audio.md](references/audio.md) |
 | Add a voiceover (AI-generated or manual) | [references/audio.md](references/audio.md) |
 | Add sound effects or music | [references/audio.md](references/audio.md) |
+| Generate an image, illustration, background or thumbnail | [references/images.md](references/images.md) |
+| Review a render (QC pass) or rank takes and candidates | [references/review.md](references/review.md) |
 | Run or review the dev server | [references/dev_server.md](references/dev_server.md) |
 | Export the video | [references/export.md](references/export.md) |
 | Write tests | [references/testing.md](references/testing.md) |
@@ -61,4 +65,5 @@ If the user's request does not map to a clear intent, ask one focused question l
 - **PLAN.md is the working memory.** Read it before iterating on a video; append after meaningful changes. Never delete log entries.
 - **Reuse, don't copy.** Top-level `segments/`, `components/`, `transitions/` are shared across all videos. Any video can use any segment. Don't duplicate.
 - **Audio-first authoring is the default for new videos with VO.** Write the script, then scaffold segments to match. This produces coherent videos.
+- **Review before hand-off.** When `GEMINI_API_KEY` is available, render and run a review pass ([references/review.md](references/review.md)) before calling a video done.
 - **One-shot when the input is rich.** Never ask a question whose answer is already in the user's input. When the user provides a complete brief, draft the plan and confirm — don't interrogate.

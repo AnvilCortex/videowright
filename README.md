@@ -15,7 +15,9 @@ Or check out the [blooper reel](https://github.com/user-attachments/assets/a1c86
 - **Video from prompt** -- generate an animated video, simply from a prompt
 - **AI voice-overs** -- generate narration from a script, then auto-sync video timing to the audio
 - **Sound Effects and Music** -- source and mix many audio sources
-- **Six built-in visual styles** -- or create your own from a brand guide or description
+- **Generated images** -- illustrations, backgrounds and thumbnails with Nano Banana 2
+- **Automated review** -- Gemini watches the render and reports what to fix before you share it
+- **Seven built-in visual styles** -- or create your own from a brand guide or description
 - **Pixel-perfect MP4 export** -- deterministic frame-by-frame rendering, no dropped frames
 - **Hot-reloading dev server** -- iterate in chat, see changes instantly
 - **Works in any major coding agent** -- Claude Code, Codex, opencode, etc
@@ -37,7 +39,7 @@ You describe the video you want. The agent writes video segments -- self-contain
 
 ## Styles
 
-Pick one of six built-in styles, or create your own from a brand guide, reference URL, or short description.
+Pick one of seven built-in styles, or create your own from a brand guide, reference URL, or short description. The newest, **Intention**, is a calm, typographic explainer-film style: ink on paper, one gold accent for the answer, narration set as type.
 
 <img width="953" height="549" alt="Built-in style packs" src="https://github.com/user-attachments/assets/3aaeecc2-7ca4-4c5a-8ed2-9adc4e226b2d" />
 
@@ -65,7 +67,7 @@ Videowright supports a full voiceover pipeline: write a narration script, genera
 The workflow:
 
 1. **Write the script.** Draft voiceover copy organized by segment in your video's PLAN.md (or ask videowright to).
-2. **Generate audio.** Record your own audio, or use AI text-to-speech. ElevenLabs is supported out of the box.
+2. **Generate audio.** Record your own audio, or use AI text-to-speech. Gemini 3.8 Flash TTS (with a Google AI Studio or OpenRouter key) and ElevenLabs v3 are supported out of the box. Make a few takes and let Videowright rank them blind.
 3. **Get timestamps.** Run the audio through speech-to-text to get per-word timing data. This tells Videowright exactly when each line is spoken.
 4. **Sync.** The agent computes a timing object that maps each segment's advances to the audio timestamps. Video beats land on the narration automatically.
 
@@ -76,6 +78,18 @@ When you change the audio -- re-record a line, change pacing, swap voices -- the
 Videowright can mix audio tracks, fading in music, timing sound effects, remixing voice-overs, and more.
 
 The agent can source sound effects and music. Both free downloads from Openverse, or AI generated sounds with ElevenLabs.
+
+## Images
+
+Videowright can generate stills for a video with Nano Banana 2 (Gemini 3.1 Flash Image): textures, backgrounds, illustrations, posters and thumbnails, matched to your style. Text, charts and UI are drawn in the DOM, where they stay sharp and animatable.
+
+## Review
+
+With a Gemini API key, Videowright renders a finished video and has Gemini watch and listen to the whole thing against the brief and script. The review lists defects with timestamps (tiny text, late beats, clicks, anything that looks like a slide), and the agent verifies each one in frames, fixes the real ones, and reviews again until it scores 8/10.
+
+## API keys
+
+Keys live in `.env`, as plain values or 1Password secret references (`ELEVENLABS_API_KEY=op://vault/item/field`). References are resolved with `op read` when a script runs, so with a reference the key itself never sits in the project; a plain value does. Never paste a key into chat.
 
 ## Editing
 

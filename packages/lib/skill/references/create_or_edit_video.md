@@ -141,6 +141,8 @@ Run `npx videowright dev` (or ask the user to run it) and confirm:
 
 If something is broken, fix it before declaring done.
 
+Once the video has its audio, and `GEMINI_API_KEY` is available, render it and run a review pass ([review.md](review.md)) before handing it over; fix what survives verification.
+
 ### Step 8 — Post-build handoff
 
 After the video is verified, present the user with an explicit choice. Show this message verbatim:
