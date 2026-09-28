@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Intention — Reference Scenes</title>
+<link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@300;400;600&family=Source+Code+Pro:wght@400;500&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="../tokens.css" />
+<style>
+  html, body { margin: 0; padding: 0; height: 100%; background: #0a0a0a; font-family: var(--font-body); }
+  .in-canvas { position: absolute; inset: 0; background: var(--color-bg); color: var(--color-fg); font-family: var(--font-body); overflow: hidden; }
+  .in-tag {
+    position: absolute; left: var(--safe-x); top: 56px;
+    font-size: var(--type-header); font-weight: 600; letter-spacing: var(--tracking-header);
+    text-transform: uppercase; opacity: 0.35;
+  }
+  .in-eyebrow {
+    position: absolute; left: 0; right: 0; text-align: center;
+    font-size: var(--type-header); font-weight: 600; letter-spacing: var(--tracking-header);
+    text-transform: uppercase;
+  }
+</style>
+</head>
+<body>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<div id="root"></div>
+<script type="text/babel" src="animations.jsx"></script>
+<script type="text/babel">
+// Ten 4-second scenes, one per sample. The reference compresses the pacing; the samples
+// hold each beat for the narrator.
+const SCENE = 4;
+const EIO = Easing.intentionInOut;
+
+// Warm a color toward the accent: k = 0 is `base`, k = 1 is gold.
+const mixGold = (k, base = 'var(--color-fg)') =>
+  `color-mix(in srgb, var(--color-accent) ${Math.round(k * 100)}%, ${base})`;
+
+// Fade in and rise a few pixels.
+function Reveal({ at = 0, dur = 0.7, rise = 8, children, style = {} }) {
+  const { localTime } = useSprite();
+  const e = phase(localTime, at, dur);
+  return <div style={{ ...style, opacity: e, transform: `translateY(${(1 - e) * rise}px)` }}>{children}</div>;
+}
+
+// A line that draws from its first point to its second.
+function DrawLine({ at = 0, dur = 0.7, x1, y1, x2, y2, stroke = 'var(--color-fg)', sw = 2, opacity = 1 }) {
+  const { localTime } = useSprite();
+  const e = phase(localTime, at, dur);
+  return <line x1={x1} y1={y1} x2={x1 + (x2 - x1) * e} y2={y1 + (y2 - y1) * e} style={{ stroke }} strokeWidth={sw} opacity={opacity} />;
+}
+
+// A ring that draws itself on from twelve o'clock.
+function RingDraw({ cx, cy, r, at = 0, dur = 1.1, stroke = 'var(--color-fg)' }) {
+  const { localTime } = useSprite();
+  const c = 2 * Math.PI * r;
+  return <circle cx={cx} cy={cy} r={r} fill="none" style={{ stroke }} strokeWidth="2"
+    strokeDasharray={c} strokeDashoffset={c * (1 - phase(localTime, at, dur))} transform={`rotate(-90 ${cx} ${cy})`} />;
+}
+
+// A dot that grows from its center; `gold` warms it toward the accent.
+function Dot({ x, y, at = 0, size = 'var(--dot)', color = 'var(--color-fg)', gold = 0 }) {
+  const { localTime } = useSprite();
+  return <div style={{
+    position: 'absolute', left: x, top: y, width: size, height: size, margin: `calc(${size} / -2)`,
+    borderRadius: '50%', background: gold ? mixGold(gold, color) : color,
+    transform: `scale(${phase(localTime, at, 0.7)})`,
+  }} />;
+}
+
+// The camera never stops: a slow push over the whole scene.
+function Drift({ to = 1.035, origin = '960px 540px', children }) {
+  const { localTime, duration } = useSprite();
+  const s = 1 + (to - 1) * Easing.intentionDrift(clamp(localTime / duration, 0, 1));
+  return <div style={{ position: 'absolute', inset: 0, transformOrigin: origin, transform: `scale(${s})` }}>{children}</div>;
+}
+
+function Layer({ children }) {
+  return <svg style={{ position: 'absolute', inset: 0, width: 1920, height: 1080, overflow: 'visible' }}>{children}</svg>;
+}
+
+function Tag({ n, name, night = false }) {
+  return <div className="in-tag" style={{ color: night ? 'var(--color-night-fg)' : 'var(--color-fg)' }}>
+    {String(n).padStart(2, '0')} · {name}
+  </div>;
+}
+
+// ── 01 Title ────────────────────────────────────────────────────────────────
+function S1() {
+  return <Sprite start={0} end={SCENE}>
+    <Paper id="s1" />
+    <Drift origin="960px 400px">
+      <Dot x={960} y={340} />
+      <TitleReveal text="One place." at={0.5} y={420} />
+    </Drift>
+    <CaptionLine text="So we gave everything one place." gold={[4, 5]} at={1.2} y={640} />
+    <Tag n={1} name="Title" />
+  </Sprite>;
+}
+
+// ── 02 Section (night) ──────────────────────────────────────────────────────
+function S2() {
+  return <Sprite start={SCENE} end={SCENE * 2}>
+    {({ localTime }) => <>
+      <Paper id="s2-paper" />
+      <div style={{ position: 'absolute', inset: 0, opacity: phase(localTime, 0, 0.9, EIO) }}><Paper night id="s2" /></div>
+      <Reveal at={0.4} style={{ position: 'absolute', inset: 0 }}>
+        <div className="in-eyebrow" style={{ top: 360, color: 'var(--color-night-fg)', opacity: 0.55 }}>Part two</div>
+      </Reveal>
+      <CaptionLine text="So we gave everything one home." gold={[5]} at={0.6} y={440}
+        size="var(--type-statement)" weight={300} ink="var(--color-night-fg)" />
+      <Dot x={960} y={620} at={0.3} color="var(--color-night-fg)" gold={phase(localTime, 0.6 + 0.25 + 5 * WORD, 0.9)} />
+      <Tag n={2} name="Section · night" night />
+    </>}
+  </Sprite>;
+}
+
+// ── 03 Kinetic ──────────────────────────────────────────────────────────────
+// Phrases never overlap: each fades out (0.35 s) before the next fades in.
+const PHRASES = [
+  { text: 'Who owns this?', at: 0, out: 1.05 },
+  { text: 'What does it cost?', at: 1.4, out: 2.65 },
+  { text: "Who's on call?", at: 3.0 },
+];
+function S3() {
+  return <Sprite start={SCENE * 2} end={SCENE * 3}>
+    {({ localTime }) => <>
+      <Paper id="s3" />
+      {PHRASES.map((p, i) => (
+        <div key={i} style={{ position: 'absolute', inset: 0, transform: `translateY(${-14 * phase(localTime, p.at, 1.6, Easing.intentionDrift)}px)` }}>
+          <CaptionLine text={p.text} at={p.at} out={p.out} pace={0.22} y={480} size="var(--type-statement)" weight={300} />
+        </div>
+      ))}
+      <Tag n={3} name="Kinetic" />
+    </>}
+  </Sprite>;
+}
+
+// ── 04 Bullet ───────────────────────────────────────────────────────────────
+const ITEMS = ['Described the same way.', 'Connected.', 'An owner.', 'One place to ask.'];
+const COLUMN = { x: 520, top: 330, step: 140 };
+function S4() {
+  return <Sprite start={SCENE * 3} end={SCENE * 4}>
+    {({ localTime }) => <>
+      <Paper id="s4" />
+      <div style={{
+        position: 'absolute', left: COLUMN.x, top: COLUMN.top - 60, width: 'var(--line-hair)',
+        height: COLUMN.step * (ITEMS.length - 1) + 120, background: 'var(--color-muted)',
+        transformOrigin: '50% 0', transform: `scaleY(${phase(localTime, 1.6, 0.9, EIO)})`,
+      }} />
+      <RingColumnCurl n={8} cx={1180} cy={540} r={230} colX={COLUMN.x} colTop={COLUMN.top} step={COLUMN.step} curlAt={0.9} dur={1.4} />
+      {ITEMS.map((text, i) => {
+        const last = i === ITEMS.length - 1;
+        return <Reveal key={i} at={2.0 + i * 0.25} style={{
+          position: 'absolute', left: COLUMN.x + 56, top: COLUMN.top + i * COLUMN.step - 25,
+          fontSize: 'calc(var(--type-label) * 1.4)', lineHeight: 1.2,
+        }}>
+          <span style={{
+            opacity: last ? 1 : 1 - 0.55 * phase(localTime, 3.1, 0.6),
+            color: last ? mixGold(phase(localTime, 2.9, 0.6)) : 'var(--color-fg)',
+          }}>{text}</span>
+        </Reveal>;
+      })}
+      <Tag n={4} name="Bullet" />
+    </>}
+  </Sprite>;
+}
+
+// ── 05 Stat ─────────────────────────────────────────────────────────────────
+const COUNT = 73;
+const STAT = { cx: 960, cy: 460, r: 300 };
+const statRand = rng(7301);
+const STAT_DOTS = Array.from({ length: COUNT }, (_, i) => {
+  const a = (i / COUNT) * 2 * Math.PI - Math.PI / 2;
+  return {
+    from: { x: 200 + statRand() * 1520, y: 140 + statRand() * 700 },
+    to: { x: STAT.cx + STAT.r * Math.cos(a), y: STAT.cy + STAT.r * Math.sin(a) },
+  };
+});
+function S5() {
+  return <Sprite start={SCENE * 4} end={SCENE * 5}>
+    {({ localTime }) => <>
+      <Paper id="s5" />
+      <DotField points={STAT_DOTS} move={1.0} dur={1.6} />
+      <Reveal at={1.0} dur={0.6} rise={0} style={{
+        position: 'absolute', left: 0, right: 0, top: STAT.cy - 132, textAlign: 'center',
+        fontFamily: 'var(--font-display)', fontWeight: 300, fontSize: 'calc(var(--type-title) * 2.2)',
+        lineHeight: 1, fontVariantNumeric: 'tabular-nums',
+      }}>{Math.round(COUNT * Easing.easeOutCubic(clamp((localTime - 1.0) / 1.8, 0, 1)))}</Reveal>
+      <CaptionLine text="Over seventy products, all in one catalog." gold={[5, 6]} at={0.2} y={900} />
+      <Tag n={5} name="Stat" />
+    </>}
+  </Sprite>;
+}
+
+// ── 06 Feature ──────────────────────────────────────────────────────────────
+// Geometry as data: connectors end 12px off each outline, never on a center.
+const NODES = [
+  { cx: 420, cy: 480, r: 72, label: 'Request' },
+  { cx: 960, cy: 480, r: 72, label: 'Triage' },
+  { cx: 1500, cy: 480, r: 72, label: 'Owning team' },
+];
+const EDGES = [outlineEdge(NODES[0], NODES[1]), outlineEdge(NODES[1], NODES[2])];
+function S6() {
+  return <Sprite start={SCENE * 5} end={SCENE * 6}>
+    {({ localTime }) => {
+      const lean = 1 + 0.08 * phase(localTime, 2.4, 1.6, EIO);
+      return <>
+        <Paper id="s6" />
+        <div style={{ position: 'absolute', inset: 0, transformOrigin: `${NODES[2].cx}px ${NODES[2].cy}px`, transform: `scale(${lean})` }}>
+          <Reveal at={0} style={{ position: 'absolute', inset: 0 }}>
+            <div className="in-eyebrow" style={{ top: 200, color: 'var(--color-muted)' }}>How a request reaches the right team</div>
+          </Reveal>
+          <Layer>
+            {NODES.map((n, i) => (
+              <RingDraw key={i} cx={n.cx} cy={n.cy} r={n.r} at={0.1 + i * 1.1}
+                stroke={i === 2 ? mixGold(phase(localTime, 2.9, 0.8)) : 'var(--color-fg)'} />
+            ))}
+          </Layer>
+          {EDGES.map((e, i) => (
+            <Tracer key={i} points={[[e.x1, e.y1], [e.x2, e.y2]]} at={0.5 + i * 1.1} dur={0.9} settle />
+          ))}
+          {NODES.map((n, i) => (
+            <Reveal key={i} at={0.5 + i * 1.1} style={{
+              position: 'absolute', left: n.cx - 200, width: 400, top: n.cy + n.r + 36,
+              textAlign: 'center', fontSize: 'calc(var(--type-label) * 1.2)',
+            }}>{n.label}</Reveal>
+          ))}
+        </div>
+        <CaptionLine text="And it reaches the team that owns it." gold={[4, 5, 6, 7]} at={0.8} y={960} />
+        <Tag n={6} name="Feature" />
+      </>;
+    }}
+  </Sprite>;
+}
+
+// ── 07 Grid ─────────────────────────────────────────────────────────────────
+const HEADS = ['Product', 'Application', 'Team', 'Service'];
+const COLS = [480, 800, 1120, 1440];
+const ROWS = [440, 580, 720];
+const gridRand = rng(2013);
+const GRID_DOTS = ROWS.flatMap((y) => COLS.map((x) => ({
+  from: { x: 260 + gridRand() * 1400, y: 220 + gridRand() * 600 },
+  to: { x, y },
+})));
+const TANGLES = Array.from({ length: 14 }, () => {
+  const a = GRID_DOTS[Math.floor(gridRand() * GRID_DOTS.length)].from;
+  const b = GRID_DOTS[Math.floor(gridRand() * GRID_DOTS.length)].from;
+  const bend = () => (gridRand() - 0.5) * 700;
+  return `M ${a.x} ${a.y} C ${a.x + bend()} ${a.y + bend()}, ${b.x + bend()} ${b.y + bend()}, ${b.x} ${b.y}`;
+});
+function S7() {
+  return <Sprite start={SCENE * 6} end={SCENE * 7}>
+    {({ localTime }) => {
+      const untangle = 1 - phase(localTime, 1.4, 0.6, EIO);
+      return <>
+        <Paper id="s7" />
+        <Layer>
+          {TANGLES.map((d, i) => (
+            <path key={i} d={d} fill="none" stroke="currentColor" strokeWidth="1" opacity={0.45 * untangle}
+              pathLength="1" strokeDasharray="1" strokeDashoffset={1 - phase(localTime, 0.3 + i * 0.05, 1.0, EIO)} />
+          ))}
+          {ROWS.flatMap((y, r) => COLS.slice(0, -1).map((x, c) => (
+            <DrawLine key={`${r}-${c}`} at={2.6 + (r * 3 + c) * 0.05} dur={0.6} x1={x + 7 + 12} y1={y} x2={COLS[c + 1] - 7 - 12} y2={y} />
+          )))}
+        </Layer>
+        {HEADS.map((h, c) => (
+          <Reveal key={h} at={2.2 + c * 0.1} style={{ position: 'absolute', left: COLS[c] - 160, width: 320, top: 320 }}>
+            <div className="in-eyebrow" style={{ position: 'static' }}>{h}</div>
+          </Reveal>
+        ))}
+        <DotField points={GRID_DOTS} move={1.4} dur={1.3} r={7} />
+        <CaptionLine text="Now each is described the same way." gold={[3, 4, 5, 6]} at={1.2} y={900} />
+        <Tag n={7} name="Grid" />
+      </>;
+    }}
+  </Sprite>;
+}
+
+// ── 08 UI showcase ──────────────────────────────────────────────────────────
+// An abstract panel in ink lines: rows are bars, never fake text.
+const PANEL = { x: 220, y: 210, w: 1140, h: 620, sidebar: 250 };
+const MAIN_X = PANEL.x + PANEL.sidebar + 60;
+const MAIN_W = PANEL.w - PANEL.sidebar - 120;
+const UI_ROWS = [0.62, 0.48, 0.7, 0.4, 0.55].map((w, i) => ({ w, y: PANEL.y + 190 + i * 88 }));
+const FOCUS = 2;
+function S8() {
+  return <Sprite start={SCENE * 7} end={SCENE * 8}>
+    {({ localTime }) => {
+      const hi = phase(localTime, 2.1, 0.9);
+      const focusY = UI_ROWS[FOCUS].y;
+      return <>
+        <Paper id="s8" />
+        <Layer>
+          <rect x={PANEL.x} y={PANEL.y} width={PANEL.w} height={PANEL.h} rx="14" fill="none" stroke="currentColor" strokeWidth="2"
+            pathLength="1" strokeDasharray="1" strokeDashoffset={1 - phase(localTime, 0, 1.2, EIO)} />
+          <line x1={PANEL.x + PANEL.sidebar} y1={PANEL.y} x2={PANEL.x + PANEL.sidebar} y2={PANEL.y + PANEL.h}
+            stroke="currentColor" strokeWidth="1" opacity={0.45 * phase(localTime, 0.7, 0.8)} />
+          <rect x={MAIN_X} y={PANEL.y + 70} width={MAIN_W * 0.35} height="22" rx="11" fill="currentColor" opacity={0.3 * phase(localTime, 0.9, 0.7)} />
+          {[0.7, 0.5, 0.6, 0.45].map((w, i) => (
+            <rect key={i} x={PANEL.x + 40} y={PANEL.y + 110 + i * 70} width={(PANEL.sidebar - 80) * w} height="12" rx="6"
+              fill="currentColor" opacity={0.3 * phase(localTime, 1.0 + i * 0.06, 0.7)} />
+          ))}
+          {UI_ROWS.map((r, i) => {
+            const shown = phase(localTime, 1.1 + i * 0.09, 0.8);
+            const base = i === FOCUS ? 0.8 : 0.45;
+            const level = base + ((i === FOCUS ? 1 : 0.18) - base) * hi;
+            return <g key={i} opacity={shown * level} transform={`translate(${-16 * (1 - shown)} 0)`}
+              style={{ fill: i === FOCUS ? mixGold(hi) : 'var(--color-fg)' }}>
+              <circle cx={MAIN_X + 10} cy={r.y} r="7" />
+              <rect x={MAIN_X + 40} y={r.y - 8} width={(MAIN_W - 260) * r.w} height="16" rx="8" />
+              <rect x={MAIN_X + MAIN_W - 160} y={r.y - 6} width="140" height="12" rx="6" />
+            </g>;
+          })}
+          <DrawLine at={2.4} dur={0.6} x1={MAIN_X + MAIN_W - 4} y1={focusY} x2={1446} y2={focusY} />
+        </Layer>
+        <Reveal at={2.8} style={{ position: 'absolute', left: 1470, top: focusY - 22, width: 360, fontSize: 'calc(var(--type-label) * 1.2)', lineHeight: 1.2 }}>
+          Owned by one team
+        </Reveal>
+        <CaptionLine text="And every row shows who owns it." gold={[4, 5, 6]} at={1.2} y={940} />
+        <Tag n={8} name="UI showcase" />
+      </>;
+    }}
+  </Sprite>;
+}
+
+// ── 09 Content: what happened ───────────────────────────────────────────────
+// Impact first, then how it was noticed, then what changed. Red marks the failure, gold the fix.
+const TIMELINE = { x1: 240, x2: 1680, y: 500 };
+const EVENTS = [
+  { time: '09:00', x: 360, label: 'Normal', color: 'var(--color-fg)', at: 0.5 },
+  { time: '09:12', x: 720, label: 'Checkout fails', color: 'var(--color-alert)', at: 1.1, pulse: true },
+  { time: '09:31', x: 1110, label: 'On-call paged', color: 'var(--color-fg)', at: 1.8 },
+  { time: '10:05', x: 1560, label: 'Fix is live', color: 'var(--color-accent)', at: 2.5, answer: true },
+];
+function S9() {
+  return <Sprite start={SCENE * 8} end={SCENE * 9}>
+    {({ localTime }) => <>
+      <Paper id="s9" />
+      <div style={{
+        position: 'absolute', left: TIMELINE.x1, top: TIMELINE.y - 1, width: TIMELINE.x2 - TIMELINE.x1, height: 'var(--line)',
+        background: 'var(--color-muted)', transformOrigin: '0 50%', transform: `scaleX(${phase(localTime, 0, 1.6, EIO)})`,
+      }} />
+      {EVENTS.map((e, i) => {
+        // The failure pulses twice, softly, then rests.
+        const p = (localTime - e.at - 0.3) / 1.4;
+        const k = e.pulse && p >= 0 && p < 2 ? Easing.intentionOut(p % 1) : null;
+        return <React.Fragment key={i}>
+          <Reveal at={e.at} style={{
+            position: 'absolute', left: e.x - 120, width: 240, top: TIMELINE.y - 90, textAlign: 'center',
+            fontSize: 'var(--type-header)', fontWeight: 600, letterSpacing: '0.12em',
+            fontVariantNumeric: 'tabular-nums', color: 'var(--color-muted)',
+          }}>{e.time}</Reveal>
+          {k !== null && <div style={{
+            position: 'absolute', left: e.x - 30, top: TIMELINE.y - 30, width: 60, height: 60, boxSizing: 'border-box',
+            borderRadius: '50%', border: '2px solid var(--color-alert)', opacity: 0.8 * (1 - k), transform: `scale(${0.4 + 1.4 * k})`,
+          }} />}
+          <Dot x={e.x} y={TIMELINE.y} at={e.at} size="20px" color={e.color} />
+          <Reveal at={e.at + 0.25} style={{
+            position: 'absolute', left: e.x - 180, width: 360, top: TIMELINE.y + 50, textAlign: 'center',
+            fontSize: 'calc(var(--type-label) * 1.1)', color: e.answer ? 'var(--color-accent)' : 'var(--color-fg)',
+          }}>{e.label}</Reveal>
+        </React.Fragment>;
+      })}
+      <CaptionLine text="By five past ten, a fix is live." gold={[5, 6, 7]} at={0.6} y={860} />
+      <Tag n={9} name="Content" />
+    </>}
+  </Sprite>;
+}
+
+// ── 10 CTA ──────────────────────────────────────────────────────────────────
+const EMBLEM = { cx: 960, cy: 400, r: 150, n: 24 };
+const ctaRand = rng(4242);
+const EMBLEM_DOTS = Array.from({ length: EMBLEM.n }, (_, i) => {
+  const a = (i / EMBLEM.n) * 2 * Math.PI - Math.PI / 2;
+  const fa = ctaRand() * 2 * Math.PI;
+  const fd = 240 + ctaRand() * 180;
+  return {
+    from: { x: EMBLEM.cx + fd * Math.cos(fa), y: EMBLEM.cy + fd * Math.sin(fa) },
+    to: { x: EMBLEM.cx + EMBLEM.r * Math.cos(a), y: EMBLEM.cy + EMBLEM.r * Math.sin(a) },
+  };
+});
+function S10() {
+  return <Sprite start={SCENE * 9} end={SCENE * 10}>
+    {({ localTime }) => <>
+      <Paper id="s10" />
+      <Drift origin={`${EMBLEM.cx}px ${EMBLEM.cy}px`} to={1.03}>
+        <div style={{
+          position: 'absolute', inset: 0, transformOrigin: `${EMBLEM.cx}px ${EMBLEM.cy}px`,
+          transform: `rotate(${-120 * (1 - phase(localTime, 0, 3.8))}deg)`,
+        }}>
+          <DotField points={EMBLEM_DOTS} move={0.5} dur={1.8} r={5} origin={{ x: EMBLEM.cx, y: EMBLEM.cy }} />
+        </div>
+        <Dot x={EMBLEM.cx} y={EMBLEM.cy} at={0.9 + 0.25 + 4 * 0.3} color="var(--color-accent)" />
+        <CaptionLine text="All of it, in one place." gold={[4, 5]} at={0.9} pace={0.3} y={EMBLEM.cy + EMBLEM.r + 110} size="var(--type-heading)" />
+        <CaptionLine text="Start with one question." at={2.4} pace={0.3} y={EMBLEM.cy + EMBLEM.r + 200} weight={300} />
+      </Drift>
+      <Tag n={10} name="CTA" />
+    </>}
+  </Sprite>;
+}
+
+function App() {
+  return (
+    <Stage width={1920} height={1080} duration={SCENE * 10} background="var(--color-bg)" persistKey="intention-ref">
+      <div className="in-canvas">
+        <S1 /><S2 /><S3 /><S4 /><S5 /><S6 /><S7 /><S8 /><S9 /><S10 />
+      </div>
+    </Stage>
+  );
+}
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

@@ -33,6 +33,7 @@ Present this message verbatim — do not rephrase or regenerate it:
 >    - **Motion Engineering** — Aerospace HUD / blueprint. Charcoal canvas, cyan-white type, amber accent. Dimension lines and crosshairs.
 >    - **Iso Diagram** — Pencil-and-paper explainer aesthetic. Hand-drawn lines, pastel fills, isometric drawings.
 >    - **Risograph** — Two-color screen-print on warm paper. Pink + ink-blue, visible grain, stop-motion cadence.
+>    - **Intention** — Calm, typographic explainer film. Ink on paper, one gold accent for the answer, narration set as type.
 
 ### Mode 1 -- Ingest reference material
 
@@ -79,8 +80,9 @@ The user types a description: "Modern look using Inter, white background, #e0e23
 Choose one of the built-in packs shipped with Videowright. The pack list and descriptions are already shown in the question above — no need to read frontmatter at runtime.
 
 1. The user picks a pack from the list presented in the question. Confirm the choice.
-2. Copy the entire `node_modules/videowright/skill/assets/styles/<slug>/` folder into the consumer repo at `styles/<slug>/`. This includes `STYLE.md`, `tokens.css`, `brand.md`, `reference/scenes.html`, `reference/animations.jsx`, and `sample/*.ts`. The slug is locked to the pack's slug -- no rename.
+2. Copy the entire `node_modules/videowright/skill/assets/styles/<slug>/` folder into the consumer repo at `styles/<slug>/`. This includes `STYLE.md`, `tokens.css`, `brand.md`, `reference/scenes.html`, `reference/animations.jsx`, `sample/*.ts`, and `kit/` and `sfx/` when the pack has them. The slug is locked to the pack's slug -- no rename.
 3. If `copySample` is true, copy each `styles/<slug>/sample/<scene>.ts` into `segments/<slug>-sample-<scene>.ts` (flat file directly under `segments/`). If any destination already exists, skip that file and report it to the user.
+4. If the pack has `kit/` (shared components and transitions), install it as the Kit section of its `STYLE.md` says, skipping files that already exist. Its transitions go in `videowright.config.ts`; during initial setup the config does not exist yet, so pass them to setup's Step 4. A pack's `sfx/` stays in the style folder; its Sound section says how to use each file.
 
 After any mode, the user's copy in `styles/<slug>/` is the source of truth. The skill does not auto-update it from `skill/assets/` later.
 

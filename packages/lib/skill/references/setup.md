@@ -90,6 +90,8 @@ export default defineConfig({
 });
 ```
 
+If the style's kit named transitions (Step 3), add them as `transitions` in the same object.
+
 If the file already exists (partial setup), only update `defaultStyle`.
 
 ### Step 5 -- Hand off to first video

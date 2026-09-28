@@ -15,7 +15,9 @@ Or check out the [blooper reel](https://github.com/user-attachments/assets/a1c86
 - **Video from prompt** -- generate an animated video, simply from a prompt
 - **AI voice-overs** -- generate narration from a script, then auto-sync video timing to the audio
 - **Sound Effects and Music** -- source and mix many audio sources
-- **Six built-in visual styles** -- or create your own from a brand guide or description
+- **Generated images** -- illustrations, backgrounds and thumbnails with Nano Banana 2
+- **Automated review** -- Gemini watches the render and reports what to fix before you share it
+- **Seven built-in visual styles** -- or create your own from a brand guide or description
 - **Pixel-perfect MP4 export** -- deterministic frame-by-frame rendering, no dropped frames
 - **Hot-reloading dev server** -- iterate in chat, see changes instantly
 - **Works in any major coding agent** -- Claude Code, Codex, opencode, etc
@@ -37,7 +39,7 @@ You describe the video you want. The agent writes video segments -- self-contain
 
 ## Styles
 
-Pick one of six built-in styles, or create your own from a brand guide, reference URL, or short description.
+Pick one of seven built-in styles, or create your own from a brand guide, reference URL, or short description. The newest, **Intention**, is a calm, typographic explainer-film style: ink on paper, one gold accent for the answer, narration set as type.
 
 <img width="953" height="549" alt="Built-in style packs" src="https://github.com/user-attachments/assets/3aaeecc2-7ca4-4c5a-8ed2-9adc4e226b2d" />
 
