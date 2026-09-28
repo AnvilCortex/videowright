@@ -14,7 +14,7 @@
 //   node gemini.mjs review <video.mp4> [--brief <text | @file>] [--script <file>] [--changes <text>]
 //       [--out <review.md>] [--model <model>]
 //       QC pass: Gemini watches and listens to the whole video and reports defects with timestamps.
-//   node gemini.mjs rank <criteria | @file> <candidate>... [--ref <file>] [--passes 4]
+//   node gemini.mjs rank <criteria | @file> <candidate>... [--ref <file>] [--passes 4] [--model <model>]
 //       Blind ranking of audio (or image/video) candidates over several shuffled passes and models.
 //
 // Every command exits non-zero with the API's error message on failure. The key is sent in a
@@ -114,6 +114,10 @@ async function upload(file, mime) {
 		},
 		body: readFileSync(file),
 	});
+	if (!res.ok)
+		throw new Error(
+			`upload of ${file} failed: HTTP ${res.status}: ${(await res.text()).slice(0, 800)}`,
+		);
 	let info = (await res.json()).file;
 	while (info?.state === "PROCESSING") {
 		await sleep(3000);
@@ -124,7 +128,14 @@ async function upload(file, mime) {
 	return { fileData: { mimeType: mime, fileUri: info.uri } };
 }
 
-async function mediaPart(file) {
+// One part per file for the whole run, so ranking passes share an upload instead of repeating it.
+const mediaParts = new Map();
+function mediaPart(file) {
+	if (!mediaParts.has(file)) mediaParts.set(file, loadPart(file));
+	return mediaParts.get(file);
+}
+
+async function loadPart(file) {
 	const mime = mimeOf(file);
 	if (statSync(file).size < INLINE_LIMIT) {
 		return { inlineData: { mimeType: mime, data: readFileSync(file).toString("base64") } };
@@ -256,20 +267,20 @@ function shuffle(items, seed) {
 	return r;
 }
 
-export async function rank(criteria, candidates, { ref, passes = 4 } = {}) {
-	const scores = new Map(candidates.map((c) => [c, []]));
-	const runs = await Promise.all(
-		Array.from({ length: passes }, async (_, p) => {
-			const order = shuffle(candidates, p + 1);
-			const labels = order.map((_, i) => String.fromCharCode(65 + i));
-			const prompt = `${ref ? "The FIRST file is a reference for the target style, not a candidate. " : ""}The candidate files follow, labelled in order ${labels.join(", ")}. ${criteria}
+/** One blind pass: the candidates shuffled, labelled A, B, C… and scored 0-100 by one model. */
+async function rankPass(criteria, candidates, ref, pass, model) {
+	const order = shuffle(candidates, pass + 1);
+	const labels = order.map((_, i) => String.fromCharCode(65 + i));
+	const prompt = `${ref ? "The FIRST file is a reference for the target style, not a candidate. " : ""}The candidate files follow, labelled in order ${labels.join(", ")}. ${criteria}
 Take in every candidate completely. Respond ONLY with JSON: {"scores": {"A": <0-100>, ...}, "notes": {"A": "<short critique>", ...}}`;
-			const model = MODELS.rank[p % MODELS.rank.length];
-			const answer = await ask(prompt, [...(ref ? [ref] : []), ...order], { model });
-			const json = JSON.parse(answer.slice(answer.indexOf("{"), answer.lastIndexOf("}") + 1));
-			return { order, labels, json, model };
-		}),
-	);
+	const answer = await ask(prompt, [...(ref ? [ref] : []), ...order], { model });
+	const json = JSON.parse(answer.slice(answer.indexOf("{"), answer.lastIndexOf("}") + 1));
+	return { order, labels, json, model };
+}
+
+/** Each pass's scores and notes, then every candidate's mean score, best first. */
+function printRanking(runs, candidates) {
+	const scores = new Map(candidates.map((c) => [c, []]));
 	for (const { order, labels, json, model } of runs) {
 		console.log(`--- ${model}`);
 		for (const [i, c] of order.entries()) {
@@ -285,6 +296,30 @@ Take in every candidate completely. Respond ONLY with JSON: {"scores": {"A": <0-
 		.map(([c, s]) => [c, s.reduce((a, b) => a + b, 0) / Math.max(1, s.length)])
 		.sort((a, b) => b[1] - a[1]);
 	for (const [c, m] of means) console.log(`${basename(c).padEnd(32)} ${m.toFixed(1)}`);
+}
+
+function checkRankArgs(candidates, passes) {
+	if (!Number.isInteger(passes) || passes < 1)
+		throw new Error(`--passes must be a whole number of 1 or more, not ${passes}`);
+	if (candidates.length > 26) throw new Error("rank takes at most 26 candidates (labelled A to Z)");
+}
+
+export async function rank(criteria, candidates, { ref, passes = 4, model } = {}) {
+	checkRankArgs(candidates, passes);
+	// --model pins every pass to one model.
+	const models = model ? [model] : MODELS.rank;
+	const settled = await Promise.allSettled(
+		Array.from({ length: passes }, (_, p) =>
+			rankPass(criteria, candidates, ref, p, models[p % models.length]),
+		),
+	);
+	// A pass that fails (an API error, a reply that is not JSON) is reported; the rest still count.
+	for (const [p, r] of settled.entries())
+		if (r.status === "rejected")
+			console.error(`pass ${p + 1} failed: ${r.reason?.message ?? r.reason}`);
+	const runs = settled.filter((r) => r.status === "fulfilled").map((r) => r.value);
+	if (!runs.length) throw new Error("every ranking pass failed");
+	printRanking(runs, candidates);
 }
 
 /** Split argv into positionals and --flags; repeated flags collect into arrays. */
@@ -355,8 +390,12 @@ const COMMANDS = {
 	},
 	rank: {
 		ok: (pos) => pos.length >= 3,
-		run: (pos, flags) =>
-			rank(textArg(pos[0]), pos.slice(1), { ref: flags.ref, passes: Number(flags.passes ?? 4) }),
+		run: (pos, flags, model) =>
+			rank(textArg(pos[0]), pos.slice(1), {
+				ref: flags.ref,
+				passes: Number(flags.passes ?? 4),
+				...model,
+			}),
 	},
 };
 
