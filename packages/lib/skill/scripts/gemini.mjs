@@ -315,42 +315,61 @@ const USAGE = `usage:
   gemini.mjs rank <criteria | @file> <candidate>... [--ref <file>] [--passes 4]
 All commands take --model <id>.`;
 
+/** Each command: whether its arguments are complete, and how to run it. */
+const COMMANDS = {
+	image: {
+		ok: (pos, flags) => pos.length === 1 && flags.out,
+		run: (pos, flags, model) =>
+			image(textArg(pos[0]), flags.out, {
+				refs: list(flags.ref),
+				aspect: flags.aspect,
+				size: flags.size,
+				...model,
+			}),
+	},
+	tts: {
+		ok: (pos, flags) => pos.length === 1 && flags.out,
+		run: async (pos, flags, model) => {
+			const text = readFileSync(pos[0] === "-" ? 0 : pos[0], "utf8").trim();
+			if (!text) throw new Error("no text to speak");
+			await tts(text, flags.out, { voice: flags.voice, style: flags.style, ...model });
+		},
+	},
+	ask: {
+		ok: (pos) => pos.length >= 1,
+		run: async (pos, _flags, model) => console.log(await ask(textArg(pos[0]), pos.slice(1), model)),
+	},
+	review: {
+		ok: (pos) => pos.length === 1,
+		run: async (pos, flags, model) => {
+			const answer = await review(pos[0], {
+				brief: textArg(flags.brief),
+				script: flags.script && readFileSync(flags.script, "utf8"),
+				changes: flags.changes,
+				...model,
+			});
+			if (flags.out) writeFileSync(flags.out, `${answer.trim()}\n`);
+			console.log(answer);
+			if (flags.out) console.log(`\nSaved ${flags.out}`);
+		},
+	},
+	rank: {
+		ok: (pos) => pos.length >= 3,
+		run: (pos, flags) =>
+			rank(textArg(pos[0]), pos.slice(1), { ref: flags.ref, passes: Number(flags.passes ?? 4) }),
+	},
+};
+
 async function main(argv) {
 	const [cmd, ...rest] = argv;
 	const { pos, flags } = parse(rest);
-	const model = flags.model ? { model: flags.model } : {};
-	if (cmd === "image" && pos.length === 1 && flags.out) {
-		await image(textArg(pos[0]), flags.out, {
-			refs: list(flags.ref),
-			aspect: flags.aspect,
-			size: flags.size,
-			...model,
-		});
-	} else if (cmd === "tts" && pos.length === 1 && flags.out) {
-		const text = readFileSync(pos[0] === "-" ? 0 : pos[0], "utf8").trim();
-		if (!text) throw new Error("no text to speak");
-		await tts(text, flags.out, { voice: flags.voice, style: flags.style, ...model });
-	} else if (cmd === "ask" && pos.length >= 1) {
-		console.log(await ask(textArg(pos[0]), pos.slice(1), model));
-	} else if (cmd === "review" && pos.length === 1) {
-		const answer = await review(pos[0], {
-			brief: textArg(flags.brief),
-			script: flags.script && readFileSync(flags.script, "utf8"),
-			changes: flags.changes,
-			...model,
-		});
-		if (flags.out) writeFileSync(flags.out, `${answer.trim()}\n`);
-		console.log(answer);
-		if (flags.out) console.log(`\nSaved ${flags.out}`);
-	} else if (cmd === "rank" && pos.length >= 3) {
-		await rank(textArg(pos[0]), pos.slice(1), {
-			ref: flags.ref,
-			passes: Number(flags.passes ?? 4),
-		});
-	} else {
+	const command = Object.hasOwn(COMMANDS, cmd) ? COMMANDS[cmd] : undefined;
+	if (!command?.ok(pos, flags)) {
 		console.error(USAGE);
 		process.exitCode = 2;
+		return;
 	}
+	await command.run(pos, flags, flags.model ? { model: flags.model } : {});
 }
 
 // Compare real paths: the skill is usually reached through a symlink (node_modules, .claude/skills).
