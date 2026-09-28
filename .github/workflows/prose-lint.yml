@@ -1,0 +1,69 @@
+name: Prose lint (changed prose)
+
+# Lints prose in changed Markdown, MDX, and TypeScript comments with Vale
+# through the official vale-cli/vale-action. `filter_mode: added` reports only
+# on lines a PR adds, so the check stays scoped to the diff rather than the
+# whole tree. `--minAlertLevel=warning` keeps suggestions local while reporting
+# warnings and errors in CI. The check is advisory: findings annotate the PR but
+# never fail it (`fail_on_error: false`). To enforce, flip fail_on_error to true.
+
+on:
+  pull_request:
+    paths:
+      - "**/*.md"
+      - "**/*.mdx"
+      - "**/*.ts"
+      - "**/*.tsx"
+
+# reviewdog's github-pr-annotations reporter emits findings as GitHub Actions
+# annotations rather than API writes, so the gate needs only read access:
+# contents to fetch the diff and pull-requests to resolve it.
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  vale:
+    name: Lint changed prose
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Nothing here pushes, and reviewdog authenticates with its own
+          # REVIEWDOG_GITHUB_API_TOKEN, so don't leave the checkout token
+          # persisted in .git/config for later steps to reach.
+          persist-credentials: false
+
+      # reviewdog resolves the diff through the pulls API, which refuses
+      # PRs above 300 files, so a jumbo PR (a scope rename, a bulk format
+      # pass) would trip the check on infrastructure rather than findings.
+      # Skip it there; findings still surface locally via `dcli prose lint`
+      # and on every normally-sized PR.
+      - name: Skip oversized PRs
+        if: ${{ github.event.pull_request.changed_files >= 300 }}
+        run: echo "::notice::PR changes ${{ github.event.pull_request.changed_files }} files, above the 300-file pulls-API diff limit reviewdog needs; skipping the prose gate."
+
+      - name: Lint prose with Vale
+        if: ${{ github.event.pull_request.changed_files < 300 }}
+        # This check is advisory. In particular, a pulls-API outage must not
+        # turn reviewdog's annotation delivery failure into a merge blocker.
+        continue-on-error: true
+        uses: vale-cli/vale-action@518a9136acc6e6668ce7c00d367051e0941e87ff # v3.0.0
+        with:
+          # Pin Vale rather than tracking "latest" so a release never shifts
+          # the gate's behaviour without a deliberate, reviewable bump.
+          version: "3.14.2"
+          # Report warnings and errors; suggestions remain in the full local
+          # `dcli prose lint` view.
+          vale_flags: "--minAlertLevel=warning"
+          # Lint the whole tree; filter_mode below narrows the reported
+          # findings to the PR's diff, so untouched files are never flagged.
+          files: all
+          filter_mode: added
+          # Advisory: annotate the PR, never fail it.
+          fail_on_error: false
+          reporter: github-pr-annotations

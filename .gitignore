@@ -31,3 +31,9 @@ Thumbs.db
 # Environment
 .env
 .env.local
+
+# Local video projects: private, never committed
+/projects/
+
+# dcli workspace
+.dcli/

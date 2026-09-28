@@ -1,0 +1,7 @@
+extends: existence
+message: "Describe why the code works this way instead of narrating a change: '%s'."
+level: error
+tokens:
+  - "(?:^|[.!?]\\s+)(?:Changed|Updated|Added|Removed|Fixed|Previously)\\b"
+  - "(?:^|[.!?]\\s+)(?:Switched to|Now uses)\\b"
+  - "(?:^|[.!?]\\s+)(?:New:|NOTE: I)\\s"

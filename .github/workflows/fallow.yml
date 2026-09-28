@@ -1,0 +1,46 @@
+name: Fallow
+
+# Gates PRs on fallow's changed-code audit: dead code, duplication, and
+# complexity findings the PR itself introduces. Inherited findings in
+# untouched files are reported for context but never fail the job —
+# see fallow's gate: new-only default (https://github.com/fallow-rs/fallow).
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  fallow:
+    name: Dead-code audit gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0 # audit needs base-branch history to attribute findings
+          # Nothing here pushes back to the repo, so the ambient token must
+          # not persist into .git/config where later steps (including the
+          # third-party action) could read it.
+          persist-credentials: false
+
+      - uses: fallow-rs/fallow@4f3bd9720ca6b22c8547adb7f1d225f57fc502d4 # v3.26.0
+        with:
+          command: audit
+          # Pin the analyzer binary, not just the action: without this the
+          # action falls back to the repo's package.json fallow dependency,
+          # else latest, so the gate could drift under an unchanged repo.
+          version: "3.26.0"
+          # SARIF upload stays off: audit mode emits multiple SARIF runs in
+          # one file and the action uploads them under a single category,
+          # which GitHub Code Scanning rejects (fallow v2.104.0). Inline PR
+          # annotations carry the findings instead.
+          # fail-on-issues arms the action's gate step; for command: audit
+          # that step keys off the audit verdict, which only reaches "fail"
+          # on introduced error-tier findings (gate: new-only default), so
+          # inherited findings and warn-tier noise never block the job.
+          fail-on-issues: true

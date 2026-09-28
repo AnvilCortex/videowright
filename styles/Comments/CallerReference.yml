@@ -1,0 +1,8 @@
+extends: existence
+message: "Describe the code's responsibility instead of its caller: '%s'."
+level: error
+ignorecase: true
+tokens:
+  - "\\bused by\\b"
+  - "\\badded for\\b"
+  - "\\bhandles the case from\\b"
