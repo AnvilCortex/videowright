@@ -425,6 +425,12 @@ export async function runRender(opts: RenderOptions): Promise<RenderResult> {
 				throw new UserError(`Render boot failed: ${bootError}`);
 			}
 
+			// Load every declared web font while real timers still run. A face first used mid-video
+			// would otherwise arrive after its frames were captured in a fallback font.
+			await page.evaluate(
+				"Promise.all([...document.fonts].map((f) => f.load().catch(() => null))).then(() => document.fonts.ready).then(() => true)",
+			);
+
 			// Switch time shim from passthrough (real timers for boot) to
 			// driver-controlled mode (virtual timers for deterministic capture).
 			await page.evaluate("window.__VW_ENGAGE_VIRTUAL_TIME__()");

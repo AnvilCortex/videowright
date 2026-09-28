@@ -88,7 +88,7 @@ After any mode, the user's copy in `styles/<slug>/` is the source of truth. The 
 
 After the style is created (any mode):
 
-1. **Modes 1 and 3 only:** Write `styles/<slug>/STYLE.md` and `styles/<slug>/tokens.css` to the consumer repo. (Mode 2 and Mode 4 already copied these in their respective steps.)
+1. **Modes 1 and 3 only:** Write `styles/<slug>/STYLE.md` and `styles/<slug>/tokens.css` to the consumer repo. (Mode 2 and Mode 4 already copied these in their respective steps.) Start `tokens.css` with an `@import` for each `font_sources` URL (see [tokens.css shape](#tokenscss-shape)); in Mode 2, add the imports if the copied file lacks them.
 2. If `copySample` is true, copy each `styles/<slug>/sample/<scene>.ts` to `segments/<slug>-sample-<scene>.ts`. The sources stay in the style folder as references; the copies in `segments/` are what videos use. If any destination already exists, skip that file and tell the user.
 3. If `setAsDefault` is true, set `defaultStyle: '<slug>'` in `videowright.config.ts`.
 4. Confirm to the user what was created and where.
@@ -127,7 +127,12 @@ font_sources:
 
 ## tokens.css shape
 
+`tokens.css` loads its own fonts: its first statement is an `@import` of each stylesheet listed in `font_sources` (same URLs). `font_sources` is metadata only; nothing else loads it, so a style without the import silently renders in fallback fonts. `render` waits for every declared face to load before the first frame.
+
 ```css
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap");
+
 :root {
   /* Colors */
   --color-bg: #ffffff;
@@ -153,6 +158,6 @@ font_sources:
 | User's source material has no typography info | Pick a sensible default (Inter for body/display, JetBrains Mono for mono). Flag the choice. |
 | User's source material has no color info | Pick neutrals (white bg, dark fg, blue accent). Flag the choice. |
 | No built-in packs exist yet (Mode 4) | Tell the user no built-in packs are available; suggest Mode 1 or Mode 3 instead. |
-| `font_sources` URLs are not Google Fonts | Accept any URL. Note that self-hosted fonts are not bundled -- the URL must be accessible at runtime. |
+| `font_sources` URLs are not Google Fonts | Accept any URL, and `@import` it at the top of `tokens.css`. Note that self-hosted fonts are not bundled -- the URL must be accessible at runtime. |
 | User provides a URL in Mode 1 | Fetch the page, extract CSS/design tokens from the markup, and proceed with style creation. If the URL is inaccessible, tell the user and suggest pasting the content directly. |
 | Source project path in Mode 2 does not contain a `styles/` folder | Tell the user the path does not appear to be a Videowright project. Ask them to check the path. |
