@@ -65,7 +65,7 @@ Videowright supports a full voiceover pipeline: write a narration script, genera
 The workflow:
 
 1. **Write the script.** Draft voiceover copy organized by segment in your video's PLAN.md (or ask videowright to).
-2. **Generate audio.** Record your own audio, or use AI text-to-speech. ElevenLabs is supported out of the box.
+2. **Generate audio.** Record your own audio, or use AI text-to-speech. Gemini 3.8 Flash TTS (with a Google AI Studio or OpenRouter key) and ElevenLabs v3 are supported out of the box. Make a few takes and let Videowright rank them blind.
 3. **Get timestamps.** Run the audio through speech-to-text to get per-word timing data. This tells Videowright exactly when each line is spoken.
 4. **Sync.** The agent computes a timing object that maps each segment's advances to the audio timestamps. Video beats land on the narration automatically.
 
@@ -76,6 +76,18 @@ When you change the audio -- re-record a line, change pacing, swap voices -- the
 Videowright can mix audio tracks, fading in music, timing sound effects, remixing voice-overs, and more.
 
 The agent can source sound effects and music. Both free downloads from Openverse, or AI generated sounds with ElevenLabs.
+
+## Images
+
+Videowright can generate stills for a video with Nano Banana 2 (Gemini 3.1 Flash Image): textures, backgrounds, illustrations, posters and thumbnails, matched to your style. Text, charts and UI are drawn in the DOM, where they stay sharp and animatable.
+
+## Review
+
+With a Gemini API key, Videowright renders a finished video and has Gemini watch and listen to the whole thing against the brief and script. The review lists defects with timestamps (tiny text, late beats, clicks, anything that looks like a slide), and the agent verifies each one in frames, fixes the real ones, and reviews again until it scores 8/10.
+
+## API keys
+
+Keys live in `.env`, as plain values or 1Password secret references (`ELEVENLABS_API_KEY=op://vault/item/field`). References are resolved with `op read` when a script runs, so keys never sit in the project. Never paste a key into chat.
 
 ## Editing
 

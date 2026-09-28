@@ -10,7 +10,7 @@ Videowright supports voiceover audio integrated into video playback. A voiceover
 
 Two production flows are supported:
 
-- **AI-generated** -- write a script with `[[pause]]` markers, generate audio with Gemini 3.8 Flash TTS (via OpenRouter) or ElevenLabs v3 (API key or web portal), then transcribe it, check it, and set the pause lengths with the retime tool.
+- **AI-generated** -- write a script with `[[pause]]` markers, generate audio with Gemini 3.8 Flash TTS (Gemini API or OpenRouter) or ElevenLabs v3 (API key or web portal), then transcribe it, check it, and set the pause lengths with the retime tool.
 - **Manual** -- user provides their own audio file, then runs it through Speech-to-Text (OpenRouter or ElevenLabs) to get per-word timing data for sync.
 
 Both flows produce the same output: a `voiceover.ts` file with a `Voiceover` object that includes the audio path and a `Timing` object.
@@ -30,7 +30,7 @@ When the user asks to "add a voiceover" or "generate a voiceover", ask:
 2. **Style intake.** Ask the user about tone and emotional arc preferences. See [voiceover/style_intake.md](voiceover/style_intake.md).
 3. **Script.** Write or integrate the VO script into PLAN.md. See [voiceover/script_writing.md](voiceover/script_writing.md).
 4. **Provider script.** Transform the PLAN script into `provider_script.md`: plain spoken text with `[[pause Xs]]` markers at segment boundaries and animation beats. See [voiceover/provider_script.md](voiceover/provider_script.md).
-5. **Audio generation.** Generate the TTS take as `raw.mp3`. See [voiceover/providers/gemini.md](voiceover/providers/gemini.md) or [voiceover/providers/elevenlabs.md](voiceover/providers/elevenlabs.md).
+5. **Audio generation.** Generate the TTS take as `raw.mp3`. See [voiceover/providers/gemini.md](voiceover/providers/gemini.md) or [voiceover/providers/elevenlabs.md](voiceover/providers/elevenlabs.md). When delivery matters, make 2-4 takes and rank them (see [retime.md § Several takes](voiceover/retime.md#several-takes)).
 6. **Retime.** Transcribe the take (STT), check it against the script (regenerate bad takes), and set every `[[pause]]` to its exact length. Produces `audio.mp3` and `timing.json`. See [voiceover/retime.md](voiceover/retime.md).
 7. **Sync timing.** Read `timing.json` and compute a `Timing` object. See [voiceover/sync_algorithm.md](voiceover/sync_algorithm.md).
 8. **Write `voiceover.ts`.** Create the typed module exporting a `Voiceover` object.
@@ -38,14 +38,14 @@ When the user asks to "add a voiceover" or "generate a voiceover", ask:
 
 ### Provider choice
 
-Check which keys `.env` already has (key names only -- `grep -c '^OPENROUTER_API_KEY=' .env`; never print values). Then ask:
+Check which keys `.env` already has (key names only -- `grep -oE '^(OPENROUTER|GEMINI|ELEVENLABS)_API_KEY=' .env`; never print values). A value may be a 1Password reference (`op://...`); that still counts as present. Then ask:
 
 > Which text-to-speech provider should we use?
 >
-> 1. **Gemini 3.8 Flash TTS via OpenRouter** -- Recommended (perfect if you already have OpenRouter keys). Natural, expressive delivery. About $0.01-0.02 per minute of audio, pay as you go. One key covers everything.
+> 1. **Gemini 3.8 Flash TTS** -- Recommended (perfect if you already have OpenRouter or Gemini API keys). Natural, expressive delivery. About $0.01-0.02 per minute of audio, pay as you go. Through OpenRouter, one key covers everything; with a Google AI Studio key, word timings also need an OpenRouter or ElevenLabs key (or the ElevenLabs portal).
 > 2. **ElevenLabs v3** -- Recommended (if you have an ElevenLabs subscription). Very expressive, large voice library. API needs a paid plan; the web portal works with any plan.
 
-If `.env` has only one of the two keys, say so and suggest that provider. If the user has no preference, use Gemini.
+If `.env` has keys for only one provider, say so and suggest it. If the user has no preference, use Gemini. With `GEMINI_API_KEY` but no `OPENROUTER_API_KEY` or `ELEVENLABS_API_KEY`, warn that the retime step will need the ElevenLabs portal for STT.
 
 ### Gemini voices
 
@@ -129,7 +129,7 @@ type Voiceover = {
   timing: Timing;
   notes?: string;
   voice?: string;                 // Gemini voice name or ElevenLabs voice ID
-  model?: string;                 // e.g. "google/gemini-3.8-flash-tts" or "eleven_v3"
+  model?: string;                 // e.g. "gemini-3.8-flash-tts" (Gemini API), "google/gemini-3.8-flash-tts" (OpenRouter), "eleven_v3"
   eleven_labs_voice_id?: string;  // deprecated: use `voice` (older voiceovers only)
 };
 ```
