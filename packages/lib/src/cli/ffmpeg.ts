@@ -10,7 +10,7 @@ import { UserError } from "./errors.js";
 /**
  * Find ffmpeg on the system PATH.
  * Returns the absolute path to the ffmpeg binary.
- * Throws UserError with install instructions if not found.
+ * Throws UserError with install instructions if not found, or if it cannot encode H.264.
  */
 export function findFfmpeg(): string {
 	const isWindows = platform() === "win32";
@@ -23,8 +23,12 @@ export function findFfmpeg(): string {
 		});
 		// `which` and `where` may return multiple lines; take the first
 		const path = result.trim().split("\n")[0].trim();
-		if (path) return path;
-	} catch {
+		if (path) {
+			assertLibx264(path);
+			return path;
+		}
+	} catch (err) {
+		if (err instanceof UserError) throw err;
 		// not found
 	}
 
@@ -35,6 +39,29 @@ export function findFfmpeg(): string {
 			: "Install ffmpeg: `sudo apt install ffmpeg` or download from https://ffmpeg.org/download.html";
 
 	throw new UserError("ffmpeg not found on PATH", installHint);
+}
+
+/**
+ * Throw a UserError if this ffmpeg cannot encode H.264 with libx264, which render requires.
+ * Some distributions ship an ffmpeg without it (Fedora's `ffmpeg-free`); without this check the
+ * render fails mid-capture with a bare `write EPIPE`.
+ */
+function assertLibx264(ffmpegPath: string): void {
+	let encoders = "";
+	try {
+		encoders = execFileSync(ffmpegPath, ["-hide_banner", "-encoders"], {
+			encoding: "utf-8",
+			stdio: ["pipe", "pipe", "pipe"],
+		});
+	} catch {
+		// Could not list encoders; let the render report whatever ffmpeg says.
+		return;
+	}
+	if (/\blibx264\b/.test(encoders)) return;
+	throw new UserError(
+		`ffmpeg at ${ffmpegPath} has no libx264 encoder`,
+		"Install an ffmpeg build with libx264. On Fedora, enable RPM Fusion and run `sudo dnf swap ffmpeg-free ffmpeg --allowerasing`; elsewhere see https://ffmpeg.org/download.html",
+	);
 }
 
 /**
