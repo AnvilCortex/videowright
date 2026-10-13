@@ -99,6 +99,11 @@ Record the chosen package manager as `<pm>` for the remaining steps.
 
 ## Step 4: Package install
 
+**Check Node first:** Videowright's dev server (vite 8) needs Node 20.19 or later, and its test tools (vitest 5) need Node 22.12 or later. Run `node --version`. If it is older than 22.12, tell the user:
+> Videowright needs Node 22.12 or later, and this machine has `<version>`. Please upgrade Node, then say "done" to continue.
+
+Wait for the user, then re-run `node --version`. Do not install packages on an older Node.
+
 ### 4a: Ensure package.json exists
 
 If `package.json` does **not** exist in the current directory, write one with these fields:
@@ -139,11 +144,6 @@ If `package.json` **does** exist:
 ### 4c: Install dev toolchain
 
 Install the dev tools that Videowright projects use. These mirror the core Videowright repo's own toolchain.
-
-**Check Node first:** the core package pins vitest 5, which needs Node 22.12 or later. Run `node --version`. If it is older, tell the user:
-> Videowright's test tools need Node 22.12 or later, and this machine has `<version>`. Please upgrade Node, then say "done" to continue.
-
-Wait for the user, then re-run `node --version`. Do not install the dev toolchain on an older Node.
 
 **Pin versions from the core package:** after step 4b, read `node_modules/videowright/package.json` and note the version ranges in its `devDependencies` for `vitest` and `@playwright/test`. Use those same version ranges when installing:
 
