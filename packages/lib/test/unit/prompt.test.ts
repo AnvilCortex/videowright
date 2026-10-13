@@ -1,5 +1,5 @@
 import { PassThrough } from "node:stream";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { type MockInstance, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { UserError } from "../../src/cli/errors.js";
 import { promptVideoSelection } from "../../src/cli/prompt.js";
 import type { VideoSummary } from "../../src/types.js";
@@ -41,8 +41,8 @@ function feedLines(stream: PassThrough, lines: string[]): void {
 
 describe("promptVideoSelection", () => {
 	let origStdin: typeof process.stdin;
-	let logSpy: ReturnType<typeof vi.spyOn>;
-	let errorSpy: ReturnType<typeof vi.spyOn>;
+	let logSpy: MockInstance<typeof console.log>;
+	let errorSpy: MockInstance<typeof console.error>;
 
 	beforeEach(() => {
 		origStdin = process.stdin;

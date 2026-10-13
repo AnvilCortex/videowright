@@ -1,6 +1,14 @@
 import { describe, expect, it, vi } from "vitest";
 import { main } from "../../src/cli/index.js";
 
+vi.mock("../../src/cli/ffmpeg.js", () => ({
+	findFfmpeg: () => "/usr/bin/ffmpeg",
+	spawnFfmpeg: vi.fn(),
+}));
+vi.mock("../../src/cli/playwright_check.js", () => ({
+	ensurePlaywright: async () => ({ chromium: { launch: vi.fn() } }),
+}));
+
 describe("CLI main", () => {
 	it("main_help_returns_0", async () => {
 		const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
@@ -48,14 +56,6 @@ describe("CLI main", () => {
 	});
 
 	it("main_render_missing_config_exits_1", async () => {
-		vi.mock("../../src/cli/ffmpeg.js", () => ({
-			findFfmpeg: () => "/usr/bin/ffmpeg",
-			spawnFfmpeg: vi.fn(),
-		}));
-		vi.mock("../../src/cli/playwright_check.js", () => ({
-			ensurePlaywright: async () => ({ chromium: { launch: vi.fn() } }),
-		}));
-
 		const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 		const code = await main(["render"]);
 		expect(code).toBe(1);
