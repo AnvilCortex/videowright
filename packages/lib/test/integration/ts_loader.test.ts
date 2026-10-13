@@ -52,6 +52,8 @@ describe("ts_loader", () => {
 		// only needed in the browser (Vite handles it). The CLI-side loader must
 		// treat these imports as no-ops instead of crashing with
 		// ERR_UNKNOWN_FILE_EXTENSION.
+		// Videowright projects must be ESM, so the fixture declares "type": "module" like one.
+		writeFileSync(join(tmpDir, "package.json"), '{ "type": "module" }', "utf-8");
 		const cssFile = join(tmpDir, "tokens.css");
 		writeFileSync(cssFile, ":root { --color-bg: #000; }", "utf-8");
 
