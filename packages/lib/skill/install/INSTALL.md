@@ -140,6 +140,11 @@ If `package.json` **does** exist:
 
 Install the dev tools that Videowright projects use. These mirror the core Videowright repo's own toolchain.
 
+**Check Node first:** the core package pins vitest 5, which needs Node 22.12 or later. Run `node --version`. If it is older, tell the user:
+> Videowright's test tools need Node 22.12 or later, and this machine has `<version>`. Please upgrade Node, then say "done" to continue.
+
+Wait for the user, then re-run `node --version`. Do not install the dev toolchain on an older Node.
+
 **Pin versions from the core package:** after step 4b, read `node_modules/videowright/package.json` and note the version ranges in its `devDependencies` for `vitest` and `@playwright/test`. Use those same version ranges when installing:
 
 ```bash
